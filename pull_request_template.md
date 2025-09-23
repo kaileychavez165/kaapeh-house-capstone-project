@@ -11,9 +11,14 @@
 
 <!-- Describe the change that is being made. -->
 **Proposed Changes**  
+*What was the previous behavior?*
+
+*What is the new behavior?*
 
 <!-- If the UI has changed, you are required to show the before and after. If the UI has not been changed, delete this section. -->
-**Screenshots** 
+**Screenshots**  
+*(Optional)*
+
 
 ## Other
 <!-- Include this section if modifications were made to pubspec.yaml -->
