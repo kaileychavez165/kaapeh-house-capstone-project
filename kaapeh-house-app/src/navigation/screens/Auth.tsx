@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
   StatusBar,
   Alert,
   ScrollView,
+  AppState,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { supabase } from "../../../utils/supabase";
 export type UserRole = 'Customer' | 'Employee' | 'Admin';
 
 export default function AuthScreen() {
@@ -24,6 +26,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Signup-specific fields
   const [fullName, setFullName] = useState("");
@@ -31,15 +34,53 @@ export default function AuthScreen() {
   const [selectedRole, setSelectedRole] = useState<string>("customer");
   const [rolePassword, setRolePassword] = useState("");
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showRolePassword, setShowRolePassword] = useState(false);
 
-  const handleLogin = () => {
-    // TODO: Implement login logic with Supabase
-    console.log("Login with:", { email, password, rememberMe });
+  // Set up auto-refresh for Supabase auth
+  useEffect(() => {
+    const handleAppStateChange = (state: string) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh();
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, []);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        Alert.alert("Login Error", error.message);
+      } else {
+        Alert.alert("Success", "Logged in successfully!");
+        // Navigation will be handled by auth state change
+      }
+    } catch (error) {
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validateRolePassword = (): boolean => {
     // No password is required for Customer
-    if (selectedRole === "customer") return true;
+    if (selectedRole === "customer") {
+      return true;
+    }
     
     // If the role is Employee or Admin, check the password
     const expectedPassword = selectedRole === "employee" 
@@ -57,21 +98,61 @@ export default function AuthScreen() {
     return true;
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
+    if (!email || !password || !fullName) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
     // Validate role password before proceeding
     if (!validateRolePassword()) {
       return;
     }
 
-    // TODO: Implement sign up logic with Supabase
-    console.log("Sign up with:", {
-      fullName,
-      phoneNumber,
-      email,
-      password,
-      role: selectedRole,
-      rememberMe,
-    });
+    setLoading(true);
+    try {
+      // Sign up the user
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        Alert.alert("Signup Error", error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Create user profile (use upsert to handle duplicates)
+        const profileData = {
+          id: data.user.id,
+          email: data.user.email,
+          full_name: fullName.trim(),
+          phone: phoneNumber.trim() || null,
+          role: selectedRole.toLowerCase(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        console.log("📝 Creating profile with data:", profileData);
+        
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(profileData);
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          Alert.alert("Profile Error", "Account created but profile setup failed. Please contact support.");
+        } else {
+          Alert.alert("Success", "Account created successfully!");
+        }
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -91,7 +172,9 @@ export default function AuthScreen() {
     setRolePassword("");
     setRememberMe(false);
     setShowPassword(false);
+    setShowRolePassword(false);
     setShowRoleDropdown(false);
+    setLoading(false);
   };
 
   const handleTabSwitch = (tab: "login" | "signup") => {
@@ -245,15 +328,27 @@ export default function AuthScreen() {
                   <Text style={styles.label}>
                     {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Password
                   </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={`Enter ${selectedRole.toLowerCase()} password`}
-                    placeholderTextColor="#BFBFBF"
-                    value={rolePassword}
-                    onChangeText={setRolePassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                  />
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      style={styles.passwordInput}
+                      placeholder={`Enter ${selectedRole.toLowerCase()} password`}
+                      placeholderTextColor="#BFBFBF"
+                      value={rolePassword}
+                      onChangeText={setRolePassword}
+                      secureTextEntry={!showRolePassword}
+                      autoCapitalize="none"
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowRolePassword(!showRolePassword)}
+                    >
+                      <MaterialCommunityIcons
+                        name={showRolePassword ? "eye-outline" : "eye-off-outline"}
+                        size={24}
+                        color="#999"
+                      />
+                    </TouchableOpacity>
+                  </View>
                   <Text style={styles.rolePasswordHint}>
                     Contact your administrator for the {selectedRole.toLowerCase()} password.
                   </Text>
@@ -329,9 +424,16 @@ export default function AuthScreen() {
           </View>
 
           {/* Submit Button */}
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <TouchableOpacity 
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]} 
+            onPress={handleSubmit}
+            disabled={loading}
+          >
             <Text style={styles.submitButtonText}>
-              {activeTab === "login" ? "Log In" : "Sign Up"}
+              {loading 
+                ? "Loading..." 
+                : activeTab === "login" ? "Log In" : "Sign Up"
+              }
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -485,6 +587,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  submitButtonDisabled: {
+    backgroundColor: "#A8A8A8",
+    borderColor: "#888888",
   },
   dropdownButton: {
     backgroundColor: "#FFFFFF",
