@@ -22,7 +22,6 @@ interface AccountProps {
 export default function AccountScreen({ session }: AccountProps) {
     const [loading, setLoading] = useState(true);
     const [fullName, setFullName] = useState("");
-    const [phone, setPhone] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
     const [role, setRole] = useState("");
 
@@ -35,9 +34,11 @@ export default function AccountScreen({ session }: AccountProps) {
         setLoading(true);
         if (!session?.user) throw new Error("No user on the session!");
 
+        console.log("🔍 Loading profile for user ID:", session.user.id);
+        
         const { data, error, status } = await supabase
         .from("profiles")
-        .select(`full_name, phone, avatar_url, role`)
+        .select(`full_name, avatar_url, role`)
         .eq("id", session?.user.id)
         .single();
 
@@ -48,7 +49,6 @@ export default function AccountScreen({ session }: AccountProps) {
         if (data) {
             console.log("👤 Profile data loaded:", data);
             setFullName(data.full_name || "");
-            setPhone(data.phone || "");
             setAvatarUrl(data.avatar_url || "");
             setRole(data.role || "");
             console.log("🎭 Role set to:", data.role);
@@ -64,11 +64,9 @@ export default function AccountScreen({ session }: AccountProps) {
 
     async function updateProfile({
         full_name,
-        phone,
         avatar_url,
     }: {
         full_name: string;
-        phone: string;
         avatar_url: string;
     }) {
     try {
@@ -77,7 +75,6 @@ export default function AccountScreen({ session }: AccountProps) {
 
         const updates = {
             full_name,
-            phone: phone || null,
             avatar_url,
             updated_at: new Date().toISOString(),
         };
@@ -160,18 +157,6 @@ export default function AccountScreen({ session }: AccountProps) {
             />
             </View>
 
-            {/* Phone Input */}
-            <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="(956) 123 - 4567"
-                placeholderTextColor="#BFBFBF"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-            />
-            </View>
 
             {/* Role Input - Read Only */}
             <View style={styles.inputContainer}>
@@ -191,7 +176,6 @@ export default function AccountScreen({ session }: AccountProps) {
             onPress={() =>
                 updateProfile({
                 full_name: fullName,
-                phone,
                 avatar_url: avatarUrl,
                 })
             }

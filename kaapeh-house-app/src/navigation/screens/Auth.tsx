@@ -30,7 +30,6 @@ export default function AuthScreen() {
 
   // Signup-specific fields
   const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("customer");
   const [rolePassword, setRolePassword] = useState("");
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
@@ -111,6 +110,7 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
+
       // Sign up the user
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -123,18 +123,18 @@ export default function AuthScreen() {
       }
 
       if (data.user) {
-        // Create user profile (use upsert to handle duplicates)
+        // Create user profile
         const profileData = {
           id: data.user.id,
           email: data.user.email,
           full_name: fullName.trim(),
-          phone: phoneNumber.trim() || null,
           role: selectedRole.toLowerCase(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         
         console.log("📝 Creating profile with data:", profileData);
+        console.log("👤 User ID from auth:", data.user.id);
         
         const { error: profileError } = await supabase
           .from('profiles')
@@ -142,6 +142,7 @@ export default function AuthScreen() {
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
+          
           Alert.alert("Profile Error", "Account created but profile setup failed. Please contact support.");
         } else {
           Alert.alert("Success", "Account created successfully!");
@@ -167,7 +168,6 @@ export default function AuthScreen() {
     setEmail("");
     setPassword("");
     setFullName("");
-    setPhoneNumber("");
     setSelectedRole("customer");
     setRolePassword("");
     setRememberMe(false);
@@ -251,18 +251,6 @@ export default function AuthScreen() {
                 />
               </View>
 
-              {/* Phone Number Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Phone Number (Optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="(956) 123 - 4567"
-                  placeholderTextColor="#BFBFBF"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                />
-              </View>
 
               {/* Role Selection */}
               <View style={styles.inputContainer}>
