@@ -1,9 +1,9 @@
 import { createStaticNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import SplashScreen from './screens/splash';
-import HomeScreen from './screens/Home';
-import LoggedInScreen from './screens/logged_in';
-import SignUpScreen from './screens/sign_up';
+import SplashScreen from './screens/Splash';
+import WelcomeScreen from './screens/Welcome';
+import AuthScreen from './screens/Auth';
+import AccountScreen from './screens/Account';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -13,15 +13,15 @@ const RootStack = createNativeStackNavigator({
         headerShown: false,
       },
     },
-    Home: HomeScreen,
-    LoggedIn: {
-      screen: LoggedInScreen,
+    Welcome: WelcomeScreen,
+    Auth: {
+      screen: AuthScreen,
       options: {
         headerShown: false,
       },
     },
-    SignUp: {
-      screen: SignUpScreen,
+    Account: {
+      screen: AccountScreen,
       options: {
         headerShown: false,
       },
