@@ -11,9 +11,9 @@ export default function HomeScreen() {
       
       <TouchableOpacity 
         style={styles.button}
-        onPress={() => navigation.navigate('LoggedIn' as never)}
+        onPress={() => navigation.navigate('Auth' as never)}
       >
-        <Text style={styles.buttonText}>Go to Login</Text>
+        <Text style={styles.buttonText}>Go to Login or Sign Up</Text>
       </TouchableOpacity>
     </View>
   );
