@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SplashScreen() {
     const navigation = useNavigation();
@@ -20,19 +19,12 @@ export default function SplashScreen() {
         <StatusBar barStyle="light-content" backgroundColor="#5B9BA4" />
         
         <View style={styles.logoContainer}>
-            {/* Coffee Steam Icon */}
-            <View style={styles.steamContainer}>
-            <MaterialCommunityIcons 
-                name="coffee" 
-                size={40} 
-                color="#FFFFFF" 
-                style={styles.coffeeIcon}
+            {/* Logo Image */}
+            <Image 
+                source={require('../../assets/images/logo-white-two.png')} 
+                style={styles.logoImage}
+                resizeMode="contain"
             />
-            </View> 
-            
-            {/* Logo Text */}
-            <Text style={styles.logoText}>Kaapeh</Text>
-            <Text style={styles.logoText}>House</Text>
         </View>
         </View>
     );
@@ -41,7 +33,7 @@ export default function SplashScreen() {
     const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#5B9BA4',
+        backgroundColor: '#3b9796',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -49,18 +41,9 @@ export default function SplashScreen() {
         alignItems: 'center',
         justifyContent: 'center',
     },
-    steamContainer: {
-        marginBottom: 8,
-    },
-    coffeeIcon: {
-        marginBottom: -10,
-    },
-    logoText: {
-        fontSize: 48,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
-        letterSpacing: 1,
-        fontFamily: 'System',
+    logoImage: {
+        width: 500,
+        height: 600,
     },
     });
 

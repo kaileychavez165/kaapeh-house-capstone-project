@@ -9,7 +9,8 @@
     "newArchEnabled": true,
     "scheme": "kaapehhouseapp",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.kaapeh-house-app"
     },
     "android": {
       "adaptiveIcon": {
