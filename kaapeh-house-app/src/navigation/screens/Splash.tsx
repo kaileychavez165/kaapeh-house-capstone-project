@@ -42,8 +42,10 @@ export default function SplashScreen() {
         justifyContent: 'center',
     },
     logoImage: {
-        width: 500,
-        height: 600,
+        // Added for responsive design
+        width: '60%',
+        height: undefined,
+        aspectRatio: 1,
     },
     });
 
