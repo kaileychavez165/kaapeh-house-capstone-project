@@ -11,6 +11,7 @@ import {
   Alert,
   ScrollView,
   AppState,
+  Image,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -188,15 +189,19 @@ export default function AuthScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logoText}>Kaapeh House</Text>
-      </View>
-
-      {/* Main Content */}
-      <View style={styles.content}>
+        <Image 
+          source={require('../../assets/images/logo-white-one.png')} 
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>Get started now</Text>
         <Text style={styles.subtitle}>
           Log in or sign up to explore our app.
         </Text>
+      </View>
+
+      {/* Main Content */}
+      <View style={styles.content}>
 
         {/* Tabs */}
         <View style={styles.tabContainer}>
@@ -243,7 +248,7 @@ export default function AuthScreen() {
                 <Text style={styles.label}>Full Name</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Lois Becket"
+                  placeholder="Maria Hernandez"
                   placeholderTextColor="#BFBFBF"
                   value={fullName}
                   onChangeText={setFullName}
@@ -350,7 +355,7 @@ export default function AuthScreen() {
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="Loisbecket@gmail.com"
+              placeholder="Mariahernandez@gmail.com"
               placeholderTextColor="#BFBFBF"
               value={email}
               onChangeText={setEmail}
@@ -440,11 +445,13 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
     paddingBottom: 24,
   },
-  logoText: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    fontFamily: Platform.OS === "ios" ? "System" : "sans-serif",
+  logoImage: {
+    width: 200, // width and height make the logo bigger
+    height: 200,
+    alignSelf: 'flex-start',
+    marginLeft: -20, 
+    marginTop: -80, //margin top and bottom make space around the png smaller
+    marginBottom: -60,
   },
   content: {
     flex: 1,
@@ -457,13 +464,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#2B2B2B",
+    color: "#fffcf5",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: "#292929",
-    marginBottom: 32,
+    color: "#fffcf5",
+    marginBottom: 0,
     lineHeight: 20,
   },
   tabContainer: {
@@ -564,7 +571,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   submitButton: {
-    backgroundColor: "#8CA989",
+    backgroundColor: "#acc18a",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
