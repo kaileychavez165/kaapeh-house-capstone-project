@@ -13,7 +13,12 @@ const RootStack = createNativeStackNavigator({
         headerShown: false,
       },
     },
-    Welcome: WelcomeScreen,
+    Welcome: {
+      screen: WelcomeScreen,
+      options: {
+        headerShown: false,
+      },
+    },
     Auth: {
       screen: AuthScreen,
       options: {
