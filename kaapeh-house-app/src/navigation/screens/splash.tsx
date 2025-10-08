@@ -6,7 +6,7 @@ export default function SplashScreen() {
     const navigation = useNavigation();
 
     useEffect(() => {
-        // Redirect to Home screen after 2.5 seconds
+        // Redirect to Welcome screen after 2.5 seconds
         const timer = setTimeout(() => {
         navigation.navigate('Welcome' as never);
         }, 2500);
