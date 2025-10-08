@@ -16,7 +16,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../../utils/supabase";
-export type UserRole = 'Customer' | 'Employee' | 'Admin';
+export type UserRole = 'Customer' | 'Admin';
 
 export default function AuthScreen() {
   const navigation = useNavigation();
@@ -82,10 +82,8 @@ export default function AuthScreen() {
       return true;
     }
     
-    // If the role is Employee or Admin, check the password
-    const expectedPassword = selectedRole === "employee" 
-      ? process.env.EXPO_PUBLIC_EMPLOYEE_PASSWORD 
-      : process.env.EXPO_PUBLIC_ADMIN_PASSWORD;
+    // If the role is Admin, check the password
+    const expectedPassword = process.env.EXPO_PUBLIC_ADMIN_PASSWORD;
     
     if (rolePassword !== expectedPassword) {
       Alert.alert(
@@ -278,7 +276,6 @@ export default function AuthScreen() {
                   <View style={styles.dropdownMenu}>
                     {[
                       { value: "Customer", label: "Customer" },
-                      { value: "Employee", label: "Employee" },
                       { value: "Admin", label: "Admin" }
                     ].map((role, index, array) => (
                       <TouchableOpacity
@@ -315,8 +312,8 @@ export default function AuthScreen() {
                 )}
               </View>
 
-              {/* Role Password for Employee/Admin */}
-              {(selectedRole === "employee" || selectedRole === "admin") && (
+              {/* Role Password for Employee */}
+              {selectedRole === "admin" && (
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>
                     {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Password
