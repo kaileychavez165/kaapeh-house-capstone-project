@@ -10,7 +10,6 @@ import {
   Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,12 +34,7 @@ export default function WelcomeScreen() {
       </View>
 
       {/* Content Section */}
-      <LinearGradient
-        colors={["#F5F1E8", '#F5F1E8', "#F5F1E8"]}
-        style={styles.contentSection}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-      >
+      <View style={styles.contentSection}>
         <Text style={styles.title}>
           Good Vibes
         </Text>
@@ -58,7 +52,7 @@ export default function WelcomeScreen() {
         >
           <Text style={styles.buttonText}>Get Started</Text>
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
