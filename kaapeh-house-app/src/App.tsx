@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../utils/supabase';
 import { Navigation } from './navigation';
-import AccountScreen from './navigation/screens/Account';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -19,7 +18,8 @@ export function App() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔐 Auth state changed:', event, session ? 'Session exists' : 'No session');
       setSession(session);
       setLoading(false);
     });
@@ -32,11 +32,6 @@ export function App() {
     return null;
   }
 
-  // If user is authenticated, show Account screen
-  if (session) {
-    return <AccountScreen session={session} />;
-  }
-
-  // Otherwise show the normal navigation flow
-  return <Navigation />;
+  // Always use Navigation component, pass session as parameter
+  return <Navigation session={session} />;
 }

@@ -15,11 +15,13 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from "../../../utils/supabase";
 export type UserRole = 'Customer' | 'Admin';
 
 export default function AuthScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
 
   // Fields for both login and signup
@@ -67,7 +69,7 @@ export default function AuthScreen() {
         Alert.alert("Login Error", error.message);
       } else {
         Alert.alert("Success", "Logged in successfully!");
-        // Navigation will be handled by auth state change
+        // Navigation will be handled automatically by auth state change
       }
     } catch (error) {
       Alert.alert("Error", "An unexpected error occurred");
@@ -145,6 +147,7 @@ export default function AuthScreen() {
           Alert.alert("Profile Error", "Account created but profile setup failed. Please contact support.");
         } else {
           Alert.alert("Success", "Account created successfully!");
+          // Navigation will be handled automatically by auth state change
         }
       }
     } catch (error) {
@@ -182,11 +185,11 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#2B2B2B" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <Image 
           source={require('../../assets/images/logo-white-one.png')} 
           style={styles.logoImage}
@@ -428,7 +431,7 @@ export default function AuthScreen() {
           </TouchableOpacity>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -439,7 +442,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
     paddingBottom: 24,
   },
   logoImage: {
@@ -455,8 +457,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F1E8",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     paddingTop: 32,
     paddingHorizontal: 24,
+    paddingBottom: 0,
   },
   title: {
     fontSize: 32,

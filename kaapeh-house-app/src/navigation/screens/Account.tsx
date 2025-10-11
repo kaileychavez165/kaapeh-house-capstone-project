@@ -14,6 +14,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../../utils/supabase";
 import { Session } from "@supabase/supabase-js";
+import BottomNavigationBar from "../../components/BottomNavigationBar";
 
 interface AccountProps {
     session: Session;
@@ -205,8 +206,14 @@ export default function AccountScreen({ session }: AccountProps) {
             />
             <Text style={styles.signOutButtonText}>Sign Out</Text>
             </TouchableOpacity>
+
+            {/* Bottom spacing for navigation */}
+            <View style={styles.bottomSpacing} />
         </ScrollView>
         </View>
+
+        {/* Bottom Navigation Bar */}
+        <BottomNavigationBar currentScreen="Account" />
     </SafeAreaView>
     );
 }
@@ -277,7 +284,7 @@ const styles = StyleSheet.create({
         color: "#666666",
     },
     updateButton: {
-        backgroundColor: "#8CA989",
+        backgroundColor: "#acc18a",
         borderRadius: 12,
         paddingVertical: 16,
         alignItems: "center",
@@ -313,5 +320,8 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "600",
         color: "#FFFFFF",
+    },
+    bottomSpacing: {
+        height: 100,
     },
 });
