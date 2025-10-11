@@ -34,14 +34,12 @@ export const Navigation: React.FC<NavigationProps> = ({ session }) => {
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
-        <Stack.Screen 
-          name="Home" 
-          component={() => session ? <HomeScreen session={session} /> : <HomeScreen session={null} />} 
-        />
-        <Stack.Screen 
-          name="Account" 
-          component={() => session ? <AccountScreen session={session} /> : null} 
-        />
+        <Stack.Screen name="Home">
+          {() => session ? <HomeScreen session={session} /> : <HomeScreen session={null} />}
+        </Stack.Screen>
+        <Stack.Screen name="Account">
+          {() => session ? <AccountScreen session={session} /> : null}
+        </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -124,17 +124,15 @@ export default function HomeScreen({ session }: HomeScreenProps) {
         </View>
       </View>
 
-      {/* Promo Banner - Positioned to overlap both sections */}
+      {/* Coffee Banner - Positioned to overlap both sections */}
       <View style={styles.promoBanner}>
-        <View style={styles.promoTag}>
-          <Text style={styles.promoTagText}>Promo</Text>
-        </View>
-        <Text style={styles.promoTitle}>
-          Buy one <Text style={styles.underline}>get</Text> one <Text style={styles.underline}>FREE</Text>
-        </Text>
-        <View style={styles.promoIcons}>
-          <MaterialCommunityIcons name="coffee" size={30} color="#FFFFFF" />
-          <MaterialCommunityIcons name="heart" size={25} color="#FFFFFF" />
+        <Image 
+          source={require('../../assets/images/coffee-banner.jpg')} 
+          style={styles.bannerImage}
+          resizeMode="cover"
+        />
+        <View style={styles.bannerOverlay}>
+          {/* can add text for icons here later */}
         </View>
       </View>
 
@@ -247,9 +245,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   promoBanner: {
-    backgroundColor: '#D2691E',
     borderRadius: 20,
-    padding: 20,
     marginHorizontal: 24,
     marginTop: -40, // Negative margin to overlap with header
     marginBottom: 20,
@@ -261,6 +257,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    height: 160, // Set a fixed height for the banner
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  bannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Semi-transparent overlay for better text readability
+    padding: 20,
+    justifyContent: 'space-between',
   },
   promoTag: {
     backgroundColor: '#FF4444',
