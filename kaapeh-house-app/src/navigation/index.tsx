@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Session } from '@supabase/supabase-js';
@@ -16,14 +16,29 @@ const Stack = createNativeStackNavigator();
 
 export const Navigation: React.FC<NavigationProps> = ({ session }) => {
   const navigationRef = useRef<any>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  // Add a delay on initial load to allow splash screen to show
   useEffect(() => {
-    // Navigate to Home when session becomes available
-    if (session && navigationRef.current) {
-      console.log('🔄 Session detected, navigating to Home');
-      navigationRef.current.navigate('Home');
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 3000); // Slightly longer than splash screen duration
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Only handle navigation after initial load delay
+  useEffect(() => {
+    if (navigationRef.current && !isInitialLoad) {
+      if (session) {
+        console.log('🔄 Session detected, navigating to Home');
+        navigationRef.current.navigate('Home');
+      } else {
+        console.log('🔄 No session, navigating to Welcome');
+        navigationRef.current.navigate('Welcome');
+      }
     }
-  }, [session]);
+  }, [session, isInitialLoad]);
 
   return (
     <NavigationContainer ref={navigationRef}>
