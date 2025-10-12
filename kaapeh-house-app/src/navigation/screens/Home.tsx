@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,21 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import BottomNavigationBar from '../../components/BottomNavigationBar';
 import { Session } from '@supabase/supabase-js';
+import { fetchMenuItems, fetchMenuItemsByCategory, fetchMenuCategories, searchMenuItems, MenuItem } from '../../services/menuService';
+import { fetchUserProfile, UserProfile } from '../../services/userService';
 
 
 const { width } = Dimensions.get('window');
 
-interface Drink {
+// MenuItem interface for rendering (includes Rating, which is not available in the DB)
+interface MenuItemDisplay {
   id: string;
   name: string;
   description: string;
@@ -28,6 +33,7 @@ interface Drink {
   rating: number;
   category: string;
   image: any;
+  available: boolean;
 }
 
 interface HomeScreenProps {
@@ -36,61 +42,158 @@ interface HomeScreenProps {
 
 export default function HomeScreen({ session }: HomeScreenProps) {
   const navigation = useNavigation();
-  const [selectedCategory, setSelectedCategory] = useState('All Coffee');
+  const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [searchQuery, setSearchQuery] = useState('');
+  const [menuItems, setMenuItems] = useState<MenuItemDisplay[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // Extract first name from session
+  // Extract first name from user profile
   const getFirstName = () => {
-    if (session?.user?.user_metadata?.full_name) {
-      return session.user.user_metadata.full_name.split(' ')[0];
+    if (userProfile?.full_name) {
+      return userProfile.full_name.split(' ')[0];
     }
-    if (session?.user?.email) {
-      return session.user.email.split('@')[0];
+    else if (userProfile?.email) {
+      return userProfile.email.split('@')[0];
     }
     return 'User';
   };
 
-  // Template drink data - will be replaced with database data later
-  const templateDrinks: Drink[] = [
-    {
-      id: '1',
-      name: 'Caffe Mocha',
-      description: 'Deep Foam',
-      price: 4.53,
-      rating: 4.8,
-      category: 'Mocha',
-      image: require('../../assets/images/react-logo.png'), // Placeholder image
-    },
-    {
-      id: '2',
-      name: 'Flat White',
-      description: 'Espresso',
-      price: 3.53,
-      rating: 4.8,
-      category: 'Latte',
-      image: require('../../assets/images/react-logo.png'), // Placeholder image
-    },
-  ];
+  // Load initial data
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
-  // we can later change this to fetch from the database
-  const categories = ['All Coffee', 'Machiato', 'Latte', 'Americano', 'Cappuccino'];
+  // Load menu items when category changes
+  useEffect(() => {
+    loadMenuItems();
+  }, [selectedCategory]);
 
-  // we can later change this to fetch from the database
-  const renderDrinkCard = (drink: Drink) => (
-    <View key={drink.id} style={styles.drinkCard}>
+  // Search when search query changes
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      performSearch();
+    } else {
+      loadMenuItems();
+    }
+  }, [searchQuery]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Loading initial data...');
+      
+      // Fetch categories and menu items in parallel
+      const [categoriesData, menuItemsData] = await Promise.all([
+        fetchMenuCategories(),
+        fetchMenuItems()
+      ]);
+      
+      // Fetch user profile separately if session exists
+      let profileData: UserProfile | null = null;
+      if (session?.user?.id) {
+        try {
+          profileData = await fetchUserProfile(session.user.id);
+        } catch (error) {
+          console.error('❌ Error fetching user profile:', error);
+          // Don't throw error for profile fetch failure, just continue
+        }
+      }
+      
+      console.log('📊 Categories loaded:', categoriesData);
+      console.log('🍽️ Menu items loaded:', menuItemsData.length, 'items');
+      console.log('👤 User profile loaded:', profileData ? 'Yes' : 'No');
+      
+      setCategories(categoriesData);
+      setMenuItems(convertToMenuItemDisplay(menuItemsData));
+      setUserProfile(profileData);
+    } catch (error) {
+      console.error('❌ Error loading initial data:', error);
+      Alert.alert('Error', 'Failed to load menu data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMenuItems = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Loading menu items for category:', selectedCategory);
+      
+      let data: MenuItem[];
+      
+      if (selectedCategory === 'All Items') {
+        data = await fetchMenuItems();
+      } else {
+        data = await fetchMenuItemsByCategory(selectedCategory);
+      }
+      
+      console.log('🍽️ Menu items loaded for category:', data.length, 'items');
+      setMenuItems(convertToMenuItemDisplay(data));
+    } catch (error) {
+      console.error('❌ Error loading menu items:', error);
+      Alert.alert('Error', 'Failed to load menu items. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const performSearch = async () => {
+    try {
+      setLoading(true);
+      const data = await searchMenuItems(searchQuery);
+      setMenuItems(convertToMenuItemDisplay(data));
+    } catch (error) {
+      console.error('Error searching menu items:', error);
+      Alert.alert('Error', 'Search failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Convert MenuItem from database to MenuItemDisplay format for rendering
+  const convertToMenuItemDisplay = (items: MenuItem[]): MenuItemDisplay[] => {
+    return items.map(item => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      rating: 4.8, // Placeholder rating (not sure how we can calculate this and store in DB)
+      category: item.category,
+      image: require('../../assets/images/react-logo.png'), // Placeholder image
+      available: item.available, // Available or Sold Out
+    }));
+  };
+
+
+  const renderMenuItemCard = (item: MenuItemDisplay) => (
+    <View key={item.id} style={[styles.drinkCard, !item.available && styles.unavailableCard]}>
       <View style={styles.drinkImageContainer}>
-        <Image source={drink.image} style={styles.drinkImage} resizeMode="cover" />
+        <Image source={item.image} style={[styles.drinkImage, !item.available && styles.unavailableImage]} resizeMode="cover" />
+        {!item.available && (
+          <View style={styles.soldOutOverlay}>
+            <Text style={styles.soldOutText}>SOLD OUT</Text>
+          </View>
+        )}
         <View style={styles.ratingContainer}>
           <MaterialCommunityIcons name="star" size={12} color="#FFD700" />
-          <Text style={styles.ratingText}>{drink.rating}</Text>
+          <Text style={styles.ratingText}>{item.rating}</Text>
         </View>
       </View>
-      <Text style={styles.drinkName}>{drink.name}</Text>
-      <Text style={styles.drinkDescription}>{drink.description}</Text>
+      <Text style={[styles.drinkName, !item.available && styles.unavailableText]}>{item.name}</Text>
+      <Text style={[styles.drinkDescription, !item.available && styles.unavailableText]}>{item.description}</Text>
       <View style={styles.drinkFooter}>
-        <Text style={styles.drinkPrice}>$ {drink.price.toFixed(2)}</Text>
-        <TouchableOpacity style={styles.addButton}>
-          <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+        <Text style={[styles.drinkPrice, !item.available && styles.unavailableText]}>${item.price.toFixed(2)}</Text>
+        <TouchableOpacity 
+          style={[styles.addButton, !item.available && styles.disabledButton]} 
+          disabled={!item.available}
+        >
+          <MaterialCommunityIcons 
+            name={item.available ? "plus" : "close"} 
+            size={20} 
+            color={item.available ? "#FFFFFF" : "#999999"} 
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -111,7 +214,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
               <MaterialCommunityIcons name="magnify" size={20} color="#999" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search coffee"
+                placeholder="Search items"
                 placeholderTextColor="#999"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -136,39 +239,73 @@ export default function HomeScreen({ session }: HomeScreenProps) {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-
-        {/* Categories */}
-        <ScrollView 
-          horizontal 
-          style={styles.categoriesContainer}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContent}
-        >
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category && styles.selectedCategoryButton
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text
+      {/* Static Categories Row */}
+      <View style={styles.categoriesSection}>
+        <View style={styles.categoriesWrapper}>
+          {/* Left gradient fade */}
+          <LinearGradient
+            colors={['#F5F1E8', 'rgba(245, 241, 232, 0)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.leftGradient}
+          />
+          
+          <ScrollView 
+            horizontal 
+            style={styles.categoriesContainer}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
+          >
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category}
                 style={[
-                  styles.categoryText,
-                  selectedCategory === category && styles.selectedCategoryText
+                  styles.categoryButton,
+                  selectedCategory === category && styles.selectedCategoryButton
                 ]}
+                onPress={() => setSelectedCategory(category)}
               >
-                {category}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === category && styles.selectedCategoryText
+                  ]}
+                >
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          
+          {/* Right gradient fade */}
+          <LinearGradient
+            colors={['rgba(245, 241, 232, 0)', '#F5F1E8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.rightGradient}
+          />
+        </View>
+      </View>
 
-        {/* Drink Grid */}
-        <View style={styles.drinksGrid}>
-          {templateDrinks.map((drink) => renderDrinkCard(drink))}
+      {/* Scrollable Menu Items Section */}
+      <ScrollView 
+        style={styles.menuScrollContainer} 
+        showsVerticalScrollIndicator={true}
+        persistentScrollbar={true}
+        contentContainerStyle={styles.menuScrollContent}
+      >
+        <View style={styles.menuGrid}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading menu items...</Text>
+            </View>
+          ) : menuItems.length > 0 ? (
+            menuItems.map((item) => renderMenuItemCard(item))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No Items</Text>
+            </View>
+          )}
         </View>
 
         {/* Bottom spacing for navigation */}
@@ -244,6 +381,42 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
   },
+  categoriesSection: {
+    backgroundColor: '#F5F1E8',
+    paddingTop: 10,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  categoriesWrapper: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  leftGradient: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 30,
+    zIndex: 2,
+  },
+  rightGradient: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 54,
+    zIndex: 2,
+  },
+  menuScrollContainer: {
+    flex: 1,
+    paddingTop: 20,
+    paddingHorizontal: 24,
+  },
+  menuScrollContent: {
+    paddingBottom: 20,
+  },
   promoBanner: {
     borderRadius: 20,
     marginHorizontal: 24,
@@ -305,11 +478,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoriesContainer: {
-    marginTop: 40, // Add space to account for overlapping promo banner
-    marginBottom: 24,
+    flex: 1,
+    paddingHorizontal: 20, // Add padding to account for gradient overlays
   },
   categoriesContent: {
-    paddingRight: 24,
+    paddingHorizontal: 4,
+    paddingRight: 50, // Add extra padding on the right to ensure last button has space
   },
   categoryButton: {
     backgroundColor: '#FFFFFF',
@@ -329,7 +503,7 @@ const styles = StyleSheet.create({
   selectedCategoryText: {
     color: '#FFFFFF',
   },
-  drinksGrid: {
+  menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
@@ -410,5 +584,57 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  // Styles for unavailable items
+  unavailableCard: {
+    opacity: 0.7,
+  },
+  unavailableImage: {
+    opacity: 0.5,
+  },
+  unavailableText: {
+    color: '#999999',
+  },
+  soldOutOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  soldOutText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#CCCCCC',
   },
 });
