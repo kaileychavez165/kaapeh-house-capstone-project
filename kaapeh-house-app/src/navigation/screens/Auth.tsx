@@ -67,9 +67,6 @@ export default function AuthScreen() {
 
       if (error) {
         Alert.alert("Login Error", error.message);
-      } else {
-        Alert.alert("Success", "Logged in successfully!");
-        // Navigation will be handled automatically by auth state change
       }
     } catch (error) {
       Alert.alert("Error", "An unexpected error occurred");
