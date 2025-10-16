@@ -9,6 +9,7 @@ import HomeScreen from './screens/Home';
 import AccountScreen from './screens/Account';
 import AdminHomeScreen from './screens/AdminHome';
 import { supabase } from '../../utils/supabase';
+import ChatBotScreen from './screens/ChatBot';
 
 interface NavigationProps {
   session: Session | null;
@@ -95,6 +96,9 @@ export const Navigation: React.FC<NavigationProps> = ({ session }) => {
         </Stack.Screen>
         <Stack.Screen name="Account">
           {() => session ? <AccountScreen session={session} /> : null}
+        </Stack.Screen>
+        <Stack.Screen name="ChatBot">
+          {() => <ChatBotScreen session={session} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>

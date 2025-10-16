@@ -316,8 +316,11 @@ export default function HomeScreen({ session }: HomeScreenProps) {
       <BottomNavigationBar currentScreen="Home" />
 
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.floatingButton}>
-        <MaterialCommunityIcons name="star-outline" size={24} color="#FFFFFF" />
+      <TouchableOpacity 
+        style={styles.floatingButton}
+        onPress={() => navigation.navigate('ChatBot' as never)}
+      >
+        <MaterialCommunityIcons name="emoticon-happy-outline" size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
