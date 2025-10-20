@@ -15,12 +15,27 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from "../../../utils/supabase";
 export type UserRole = 'Customer' | 'Admin';
 
+type RootStackParamList = {
+  Auth: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { access_token?: string; refresh_token?: string; type?: string; token_hash?: string };
+  Home: undefined;
+  AdminHome: undefined;
+  Account: undefined;
+  ChatBot: undefined;
+  Welcome: undefined;
+  Splash: undefined;
+};
+
+type AuthScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Auth'>;
+
 export default function AuthScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<AuthScreenNavigationProp>();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
 
@@ -407,7 +422,7 @@ export default function AuthScreen() {
 
             {/* Show Forgot Password only for login */}
             {activeTab === "login" && (
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
             )}
