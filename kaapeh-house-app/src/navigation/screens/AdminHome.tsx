@@ -8,9 +8,12 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, Circle, Path } from 'react-native-svg';
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { supabase } from "../../../utils/supabase";
 
 const { width } = Dimensions.get('window');
 
@@ -144,6 +147,17 @@ const AdminHome = () => {
     { name: 'Extras', expanded: extrasExpanded, setExpanded: setExtrasExpanded },
   ];
 
+  const handleSignOut = async () => {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+        Alert.alert("Error signing out", error.message);
+        }
+    } catch (error) {
+        Alert.alert("Error", "An unexpected error occurred while signing out");
+    }
+    };
+
   return (
     <View style={styles.mainContainer} {...panResponder.panHandlers}>
       {/* Hamburger Menu Toggle Button */}
@@ -250,6 +264,20 @@ const AdminHome = () => {
             })}
           </View>
         </View>
+
+         {/* Sign Out Button */}
+         <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+            >
+            <MaterialCommunityIcons
+                name="logout"
+                size={20}
+                color="#FFFFFF"
+                style={styles.buttonIcon}
+            />
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
+            </TouchableOpacity>
 
         {/* Statistics */}
       </ScrollView>
@@ -521,6 +549,24 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 14,
     color: '#666',
+  },
+  signOutButton: {
+    backgroundColor: "#D9534F",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#C9302C",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  signOutButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 });
 
