@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -63,6 +64,18 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   // Load initial data
   useEffect(() => {
     loadInitialData();
+  }, []);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backAction = () => {
+      // Prevent going back to Auth screen
+      return true; // This prevents the default back action
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+    return () => backHandler.remove();
   }, []);
 
   // Load menu items when category changes

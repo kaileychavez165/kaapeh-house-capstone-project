@@ -97,15 +97,27 @@ export const Navigation: React.FC<NavigationProps> = ({ session, pendingResetPas
     if (navigationRef.current && !isInitialLoad && !pendingResetPassword && !isOnResetPasswordScreen) {
       if (session && userRole) {
         if (userRole === 'admin') {
-          console.log('🔄 Admin session detected, navigating to AdminHome');
-          navigationRef.current.navigate('AdminHome');
+          console.log('🔄 Admin session detected, resetting navigation to AdminHome');
+          // Reset navigation stack to prevent back navigation to Auth
+          navigationRef.current.reset({
+            index: 0,
+            routes: [{ name: 'AdminHome' }],
+          });
         } else {
-          console.log('🔄 Session detected, navigating to Home');
-          navigationRef.current.navigate('Home');
+          console.log('🔄 Session detected, resetting navigation to Home');
+          // Reset navigation stack to prevent back navigation to Auth
+          navigationRef.current.reset({
+            index: 0,
+            routes: [{ name: 'Home' }],
+          });
         }
       } else if (!session) {
-        console.log('🔄 No session, navigating to Welcome');
-        navigationRef.current.navigate('Welcome');
+        console.log('🔄 No session, resetting navigation to Welcome');
+        // Reset navigation stack to prevent back navigation to authenticated screens
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
       }
     }
   }, [session, userRole, isInitialLoad, pendingResetPassword, isOnResetPasswordScreen]);
