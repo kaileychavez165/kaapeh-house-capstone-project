@@ -11,6 +11,7 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, Circle, Path, Rect } from 'react-native-svg';
 
@@ -41,6 +42,7 @@ const EditIcon = ({ active = false }) => (
 
 const AdminHome = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const navigation = useNavigation();
 
   // Weekly sales data
   const weeklyData = [
@@ -61,6 +63,9 @@ const AdminHome = () => {
     { name: 'Flat White', sold: 10, rank: 2 },
     { name: 'Iced Latte', sold: 9, rank: 3 },
   ];
+
+
+
 
   return (
     <View style={styles.container}>
@@ -160,10 +165,9 @@ const AdminHome = () => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
-          onPress={() => setActiveTab('users')}
+          onPress={() => navigation.navigate('CustomerPortal' as never)}
         >
-          <UsersIcon active={activeTab === 'users'} />
-          {activeTab === 'users' && <View style={styles.activeIndicator} />}
+          <UsersIcon active={false} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}

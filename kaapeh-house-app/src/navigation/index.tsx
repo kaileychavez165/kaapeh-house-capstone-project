@@ -8,6 +8,7 @@ import AuthScreen from './screens/Auth';
 import HomeScreen from './screens/Home';
 import AccountScreen from './screens/Account';
 import AdminHomeScreen from './screens/AdminHome';
+import CustomerPortalScreen from './screens/CustomerPortal';
 import { supabase } from '../../utils/supabase';
 
 interface NavigationProps {
@@ -82,7 +83,12 @@ export const Navigation: React.FC<NavigationProps> = ({ session }) => {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Splash"
-        screenOptions={{ headerShown: false }}
+        screenOptions={{ 
+          headerShown: false,
+          animation: 'none',
+          animationTypeForReplace: 'pop',
+          gestureEnabled: false,
+        }}
       >
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -92,6 +98,9 @@ export const Navigation: React.FC<NavigationProps> = ({ session }) => {
         </Stack.Screen>
         <Stack.Screen name="AdminHome">
           {() => session ? <AdminHomeScreen /> : null}
+        </Stack.Screen>
+        <Stack.Screen name="CustomerPortal">
+          {() => session ? <CustomerPortalScreen /> : null}
         </Stack.Screen>
         <Stack.Screen name="Account">
           {() => session ? <AccountScreen session={session} /> : null}
