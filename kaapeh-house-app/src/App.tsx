@@ -2,7 +2,8 @@ import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
-import { supabase } from '../utils/supabase';
+import { AppState } from 'react-native';
+import { supabase, getRememberMe, clearSessionOnAppClose } from '../utils/supabase';
 import { Navigation } from './navigation';
 
 export function App() {
@@ -28,6 +29,35 @@ export function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Handle app state changes for remember me functionality
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      console.log('📱 App state changed to:', nextAppState);
+      
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // Check if we should clear session on app background
+        const shouldRemember = getRememberMe();
+        console.log('🔐 Remember me status:', shouldRemember);
+        console.log('🔐 Current session exists:', !!session);
+        
+        if (!shouldRemember && session) {
+          console.log('🚪 User did not check remember me, clearing session');
+          clearSessionOnAppClose();
+        } else if (shouldRemember) {
+          console.log('✅ User checked remember me, keeping session');
+        } else {
+          console.log('ℹ️ No session to clear or remember me is true');
+        }
+      } else if (nextAppState === 'active') {
+        // Start auto-refresh when app becomes active
+        supabase.auth.startAutoRefresh();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [session]);
 
   // Handle deep links for password reset
   useEffect(() => {

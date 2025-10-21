@@ -17,7 +17,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from "../../../utils/supabase";
+import { supabase, setRememberMe as setGlobalRememberMe } from "../../../utils/supabase";
 export type UserRole = 'Customer' | 'Admin';
 
 type RootStackParamList = {
@@ -75,6 +75,10 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
+      // Set the remember me preference before authentication
+      console.log('🔐 Auth screen rememberMe state:', rememberMe);
+      setGlobalRememberMe(rememberMe);
+      
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
@@ -123,6 +127,9 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
+      // Set the remember me preference before authentication
+      console.log('🔐 Auth screen rememberMe state (signup):', rememberMe);
+      setGlobalRememberMe(rememberMe);
 
       // Sign up the user
       const { data, error } = await supabase.auth.signUp({
