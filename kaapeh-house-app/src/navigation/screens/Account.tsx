@@ -10,8 +10,10 @@ import {
     StatusBar,
     Alert,
     ScrollView,
+    BackHandler,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../../utils/supabase";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
@@ -21,6 +23,7 @@ interface AccountProps {
 }
 
 export default function AccountScreen({ session }: AccountProps) {
+    const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
     const [fullName, setFullName] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
@@ -29,6 +32,18 @@ export default function AccountScreen({ session }: AccountProps) {
     useEffect(() => {
         if (session) getProfile();
     }, [session]);
+
+    // Handle Android hardware back button
+    useEffect(() => {
+        const backAction = () => {
+            // Prevent going back to Auth screen
+            return true; // This prevents the default back action
+        };
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+        return () => backHandler.remove();
+    }, []);
 
     async function getProfile() {
     try {
@@ -106,6 +121,9 @@ export default function AccountScreen({ session }: AccountProps) {
         const { error } = await supabase.auth.signOut();
         if (error) {
         Alert.alert("Error signing out", error.message);
+        } else {
+        // Navigation will be handled automatically by auth state change
+        // The Navigation component will reset to Welcome screen when session becomes null
         }
     } catch (error) {
         Alert.alert("Error", "An unexpected error occurred while signing out");
