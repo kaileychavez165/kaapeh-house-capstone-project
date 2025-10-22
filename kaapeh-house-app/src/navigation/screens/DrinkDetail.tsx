@@ -201,6 +201,17 @@ export default function DrinkDetailScreen() {
           <TouchableOpacity 
             style={[styles.buyButton, !item.available && styles.disabledBuyButton]}
             disabled={!item.available}
+            onPress={() => {
+              const cartItem = {
+                ...item,
+                size: selectedSize,
+                temperature: selectedTemperature,
+                quantity: 1
+              };
+              (navigation as any).navigate('OrderDetail', { 
+                cartItems: [cartItem] 
+              });
+            }}
           >
             <Text style={styles.buyButtonText}>
               {item.available ? 'Buy Now' : 'Sold Out'}
