@@ -57,7 +57,6 @@ export default function OrderDetailScreen() {
   };
 
   const subtotal = calculateSubtotal();
-  const deliveryFee = 2.0;
   const discountDeliveryFee = 1.0;
   const total = subtotal + discountDeliveryFee;
 
