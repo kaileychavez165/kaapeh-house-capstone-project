@@ -13,6 +13,7 @@ import AdminHomeScreen from './screens/AdminHome';
 import CustomerPortalScreen from './screens/CustomerPortal';
 import { supabase } from '../../utils/supabase';
 import ChatBotScreen from './screens/ChatBot';
+import DrinkDetailScreen from './screens/DrinkDetail';
 
 interface NavigationProps {
   session: Session | null;
@@ -156,6 +157,7 @@ export const Navigation: React.FC<NavigationProps> = ({ session, pendingResetPas
         <Stack.Screen name="ChatBot">
           {() => <ChatBotScreen session={session} />}
         </Stack.Screen>
+        <Stack.Screen name="DrinkDetail" component={DrinkDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

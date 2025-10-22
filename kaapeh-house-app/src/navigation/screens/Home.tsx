@@ -201,6 +201,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
         <TouchableOpacity 
           style={[styles.addButton, !item.available && styles.disabledButton]} 
           disabled={!item.available}
+          onPress={() => (navigation as any).navigate('DrinkDetail', { item })}
         >
           <MaterialCommunityIcons 
             name={item.available ? "plus" : "close"} 
