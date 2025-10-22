@@ -42,6 +42,10 @@ export default function BottomNavigationBar({ currentScreen = 'Home' }: BottomNa
       (navigation as any).navigate('Home');
     } else if (screenId === 'Account') {
       (navigation as any).navigate('Account');
+    } else if (screenId === 'Shopping') {
+      // Navigate to OrderDetail with empty cart for now
+      // In a real app, this would show the current cart items
+      (navigation as any).navigate('OrderDetail', { cartItems: [] });
     }
     // Add more navigation cases as needed for other screens
   };
