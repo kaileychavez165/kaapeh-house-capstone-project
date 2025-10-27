@@ -400,7 +400,10 @@ const CustomerPortal = () => {
           <UsersIcon active={true} />
           <View style={styles.activeIndicator} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate('Menu' as never)}
+        >
           <EditIcon active={false} />
         </TouchableOpacity>
       </View>

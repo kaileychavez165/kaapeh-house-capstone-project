@@ -198,10 +198,9 @@ const AdminHome = () => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
-          onPress={() => setActiveTab('edit')}
+          onPress={() => navigation.navigate('Menu' as never)}
         >
-          <EditIcon active={activeTab === 'edit'} />
-          {activeTab === 'edit' && <View style={styles.activeIndicator} />}
+          <EditIcon active={false} />
         </TouchableOpacity>
       </View>
     </View>
