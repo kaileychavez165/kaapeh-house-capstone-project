@@ -12,7 +12,7 @@ export interface CustomerSummary {
 // Fetch customers from profiles and compute number of orders per customer
 export const fetchCustomerSummaries = async (): Promise<CustomerSummary[]> => {
   try {
-    // 1) Fetch profiles
+    // Fetch profiles
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, email, full_name, avatar_url, created_at")
@@ -30,7 +30,7 @@ export const fetchCustomerSummaries = async (): Promise<CustomerSummary[]> => {
       return [];
     }
 
-    // 2) Fetch orders customer_id list (grouping in JS for portability)
+    // Fetch orders customer_id list
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("customer_id");
@@ -46,7 +46,7 @@ export const fetchCustomerSummaries = async (): Promise<CustomerSummary[]> => {
       ordersCountByCustomer[key] = (ordersCountByCustomer[key] || 0) + 1;
     });
 
-    // 3) Merge
+    // Merge
     const result: CustomerSummary[] = (profiles || []).map((p) => ({
       id: p.id,
       email: p.email,
