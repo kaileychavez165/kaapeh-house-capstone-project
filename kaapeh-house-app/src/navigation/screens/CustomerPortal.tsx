@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path, Rect } from 'react-native-svg';
+import { fetchCustomerSummaries } from '../../services/customerService';
 
 // Navigation Icons
 const ChartIcon = ({ active = false }) => (
@@ -40,152 +41,102 @@ const CustomerPortal = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('Most Recent');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Array<{
+    id: string;
+    name: string;
+    email: string;
+    orders: number;
+    joinedDate: string; // "Month YYYY"
+    createdAtMs: number;
+    avatar: string; // initials for placeholder
+    hasImage: boolean;
+  }>>([]);
   const navigation = useNavigation();
   
   // Animation for dropdown
   const dropdownOpacity = useState(new Animated.Value(0))[0];
   const dropdownScale = useState(new Animated.Value(0.8))[0];
 
-  const customers = [
-    {
-      id: 1,
-      name: 'Jessica Santos',
-      email: 'jessicasantos@gmail.com',
-      orders: 2,
-      joinedDate: 'October 2025',
-      avatar: 'JS',
-      hasImage: false,
-    },
-    {
-      id: 2,
-      name: 'John Smith',
-      email: 'john.smith@gmail.com',
-      orders: 1,
-      joinedDate: 'October 2025',
-      avatar: 'JS',
-      hasImage: true,
-    },
-    {
-      id: 3,
-      name: 'Maria Hernandez',
-      email: 'mariahernandez10@gmail.com',
-      orders: 4,
-      joinedDate: 'September 2025',
-      avatar: 'MH',
-      hasImage: true,
-    },
-    {
-      id: 4,
-      name: 'Jane Smith',
-      email: 'jane.s@gmail.com',
-      orders: 2,
-      joinedDate: 'September 2025',
-      avatar: 'JS',
-      hasImage: false,
-    },
-    {
-      id: 5,
-      name: 'Michael Rivera',
-      email: 'mike.rivera@gmail.com',
-      orders: 6,
-      joinedDate: 'September 2025',
-      avatar: 'MR',
-      hasImage: false,
-    },
-    {
-      id: 6,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@gmail.com',
-      orders: 3,
-      joinedDate: 'October 2025',
-      avatar: 'SJ',
-      hasImage: false,
-    },
-    {
-      id: 7,
-      name: 'David Wilson',
-      email: 'david.wilson@gmail.com',
-      orders: 5,
-      joinedDate: 'September 2025',
-      avatar: 'DW',
-      hasImage: false,
-    },
-    {
-      id: 8,
-      name: 'Lisa Chen',
-      email: 'lisa.chen@gmail.com',
-      orders: 1,
-      joinedDate: 'October 2025',
-      avatar: 'LC',
-      hasImage: false,
-    },
-    {
-      id: 9,
-      name: 'Robert Brown',
-      email: 'robert.brown@gmail.com',
-      orders: 4,
-      joinedDate: 'September 2025',
-      avatar: 'RB',
-      hasImage: false,
-    },
-    {
-      id: 10,
-      name: 'Emily Davis',
-      email: 'emily.davis@gmail.com',
-      orders: 2,
-      joinedDate: 'October 2025',
-      avatar: 'ED',
-      hasImage: false,
-    },
-  ];
-
-  // Animation for customer cards
-  const cardAnimations = useState(() => 
-    customers.map(() => ({
-      opacity: new Animated.Value(0),
-      translateY: new Animated.Value(30),
-    }))
-  )[0];
-
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Sort customers based on selected option
-  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
-    // Convert "Month Year" format to sortable date
-    const parseDate = (dateStr: string) => {
-      const [month, year] = dateStr.split(' ');
-      const monthIndex = new Date(Date.parse(month + " 1, 2000")).getMonth();
-      return new Date(parseInt(year), monthIndex);
+  // Fetch customers from backend
+  React.useEffect(() => {
+    const formatMonthYear = (isoDate: string) => {
+      const d = new Date(isoDate);
+      return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    };
+    const getInitials = (fullName: string) => {
+      const parts = fullName.trim().split(/\s+/);
+      const first = parts[0]?.[0] || '';
+      const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return (first + last).toUpperCase();
     };
 
-    if (sortBy === 'Most Recent') {
-      // Sort by join date (most recent first)
-      return parseDate(b.joinedDate).getTime() - parseDate(a.joinedDate).getTime();
-    } else if (sortBy === 'Least Recent') {
-      // Sort by join date (least recent first)
-      return parseDate(a.joinedDate).getTime() - parseDate(b.joinedDate).getTime();
-    }
-    return 0;
-  });
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const summaries = await fetchCustomerSummaries();
+        const mapped = summaries.map((s) => ({
+          id: s.id,
+          name: s.full_name,
+          email: s.email,
+          orders: s.ordersCount,
+          joinedDate: formatMonthYear(s.created_at),
+          createdAtMs: new Date(s.created_at).getTime(),
+          avatar: getInitials(s.full_name),
+          hasImage: false, // placeholder for now
+        }));
+        setCustomers(mapped);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to load customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-  const sortOptions = ['Most Recent', 'Least Recent'];
+  // Animation for customer cards
+  const [cardAnimations, setCardAnimations] = useState<Array<{ opacity: Animated.Value; translateY: Animated.Value }>>([]);
 
-  // Debug: Log the current sort and first few customers
-  console.log('Current sort:', sortBy);
-  console.log('First 3 customers:', sortedCustomers.slice(0, 3).map(c => ({ name: c.name, joinedDate: c.joinedDate })));
+  // Filter and sort derived lists (used by animations and render)
+  const filteredCustomers = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return customers.filter(customer =>
+      customer.name.toLowerCase().includes(q) ||
+      customer.email.toLowerCase().includes(q)
+    );
+  }, [customers, searchQuery]);
 
-  // Animate customer cards on mount and when sort changes
+  const sortedCustomers = useMemo(() => {
+    const arr = [...filteredCustomers];
+    arr.sort((a, b) => {
+      if (sortBy === 'Most Recent') {
+        return b.createdAtMs - a.createdAtMs;
+      } else if (sortBy === 'Least Recent') {
+        return a.createdAtMs - b.createdAtMs;
+      }
+      return 0;
+    });
+    return arr;
+  }, [filteredCustomers, sortBy]);
+
+  // Build and run animations for the visible (filtered/sorted) list
   React.useEffect(() => {
+    const newAnimations = sortedCustomers.map(() => ({
+      opacity: new Animated.Value(0),
+      translateY: new Animated.Value(30),
+    }));
+    setCardAnimations(newAnimations);
+
     const animateCards = () => {
-      cardAnimations.forEach((animation, index) => {
+      newAnimations.forEach((animation, index) => {
         Animated.parallel([
           Animated.timing(animation.opacity, {
             toValue: 1,
             duration: 300,
-            delay: index * 50, // Stagger animation
+            delay: index * 50,
             useNativeDriver: true,
           }),
           Animated.timing(animation.translateY, {
@@ -198,15 +149,20 @@ const CustomerPortal = () => {
       });
     };
 
-    // Reset animations
-    cardAnimations.forEach(animation => {
-      animation.opacity.setValue(0);
-      animation.translateY.setValue(30);
-    });
+    const t = setTimeout(animateCards, 50);
+    return () => clearTimeout(t);
+  }, [sortedCustomers.length]);
 
-    // Animate after a short delay
-    setTimeout(animateCards, 100);
-  }, [sortBy, searchQuery]);
+  // Sort customers based on selected option
+
+  const sortOptions = ['Most Recent', 'Least Recent'];
+
+  // Debug: Log the current sort and first few customers
+  console.log('Current sort:', sortBy);
+  console.log('First 3 customers:', sortedCustomers.slice(0, 3).map(c => ({ name: c.name, joinedDate: c.joinedDate })));
+
+  // Animate customer cards on mount and when sort changes
+  // Remove old effect that tried to re-run animations separately
 
   // Handle dropdown toggle with animation
   const toggleDropdown = () => {
@@ -288,7 +244,6 @@ const CustomerPortal = () => {
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
-        onTouchStart={() => setShowSortDropdown(false)}
       >
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -348,10 +303,27 @@ const CustomerPortal = () => {
           </View>
         </View>
 
+        {/* Backdrop overlay to close dropdown when tapping outside */}
+        {showSortDropdown && (
+          <View
+            style={styles.dropdownBackdrop}
+            onStartShouldSetResponder={() => true}
+            onResponderRelease={() => setShowSortDropdown(false)}
+          />
+        )}
+
+        {/* Loading / Error */}
+        {loading && (
+          <Text style={{ textAlign: 'center', color: '#6B7280', marginBottom: 12 }}>Loading customers...</Text>
+        )}
+        {!!error && (
+          <Text style={{ textAlign: 'center', color: '#DC2626', marginBottom: 12 }}>{error}</Text>
+        )}
+
         {/* Customer List */}
         <View style={styles.customerList}>
-          {sortedCustomers.map((customer, index) => {
-            const animation = cardAnimations[index] || { opacity: new Animated.Value(1), translateY: new Animated.Value(0) };
+          {cardAnimations.length === sortedCustomers.length && sortedCustomers.map((customer, index) => {
+            const animation = cardAnimations[index];
             return (
               <Animated.View 
                 key={customer.id} 
@@ -553,6 +525,15 @@ const styles = StyleSheet.create({
   customerList: {
     gap: 12,
     paddingBottom: 100,
+  },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 900,
   },
   customerCard: {
     flexDirection: 'row',
