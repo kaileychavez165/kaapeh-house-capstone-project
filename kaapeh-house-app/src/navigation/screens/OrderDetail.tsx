@@ -10,40 +10,19 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-
-// Define the route params interface
-type RootStackParamList = {
-  OrderDetail: {
-    cartItems: Array<{
-      id: string;
-      name: string;
-      description: string;
-      price: number;
-      rating: number;
-      category: string;
-      image: any;
-      available: boolean;
-      size: string;
-      temperature: string;
-      quantity: number;
-    }>;
-  };
-};
-
-type OrderDetailRouteProp = RouteProp<RootStackParamList, 'OrderDetail'>;
+import { useCart } from '../../context/CartContext';
 
 interface OrderDetailScreenProps {}
 
 export default function OrderDetailScreen() {
   const navigation = useNavigation();
-  const route = useRoute<OrderDetailRouteProp>();
-  const { cartItems } = route.params;
+  const { items: cartItems, setQuantity } = useCart();
   
-  const [quantities, setQuantities] = useState<{[key: string]: number}>(
-    cartItems.reduce((acc, item) => ({ ...acc, [item.id]: item.quantity || 1 }), {})
-  );
+  const [quantities, setQuantities] = useState<{[key: string]: number}>(() => (
+    cartItems.reduce((acc, item) => ({ ...acc, [item.id + '|' + item.size + '|' + item.temperature]: item.quantity || 1 }), {})
+  ));
   const [selectedDeliveryTime, setSelectedDeliveryTime] = useState('5 minutes');
   const [showDeliveryDropdown, setShowDeliveryDropdown] = useState(false);
 
@@ -52,7 +31,8 @@ export default function OrderDetailScreen() {
   // Calculate totals
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
-      return total + (item.price * quantities[item.id]);
+      const key = item.id + '|' + item.size + '|' + item.temperature;
+      return total + (item.price * (quantities[key] || item.quantity || 1));
     }, 0);
   };
 
@@ -60,11 +40,17 @@ export default function OrderDetailScreen() {
   const discountDeliveryFee = 1.0;
   const total = subtotal + discountDeliveryFee;
 
-  const updateQuantity = (itemId: string, change: number) => {
-    setQuantities(prev => ({
-      ...prev,
-      [itemId]: Math.max(1, prev[itemId] + change)
-    }));
+  const updateQuantity = (item: { id: string; size: string; temperature: string }, change: number) => {
+    const key = item.id + '|' + item.size + '|' + item.temperature;
+    setQuantities(prev => {
+      const next = Math.max(1, (prev[key] || 1) + change);
+      // sync to context
+      setQuantity(item.id, next, { size: item.size, temperature: item.temperature });
+      return {
+        ...prev,
+        [key]: next,
+      };
+    });
   };
 
   return (
@@ -164,14 +150,14 @@ export default function OrderDetailScreen() {
                 <View style={styles.quantitySelector}>
                   <TouchableOpacity 
                     style={styles.quantityButton}
-                    onPress={() => updateQuantity(item.id, -1)}
+                    onPress={() => updateQuantity(item, -1)}
                   >
                     <MaterialCommunityIcons name="minus" size={16} color="#666666" />
                   </TouchableOpacity>
-                  <Text style={styles.quantityText}>{quantities[item.id]}</Text>
+                  <Text style={styles.quantityText}>{quantities[item.id + '|' + item.size + '|' + item.temperature] || item.quantity}</Text>
                   <TouchableOpacity 
                     style={styles.quantityButton}
-                    onPress={() => updateQuantity(item.id, 1)}
+                    onPress={() => updateQuantity(item, 1)}
                   >
                     <MaterialCommunityIcons name="plus" size={16} color="#666666" />
                   </TouchableOpacity>
