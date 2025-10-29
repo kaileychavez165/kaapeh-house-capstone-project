@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
+import { EditMode, DeleteConfirmationModal, MenuItem } from './MenuFeature';
 
 // Navigation Icons
 const ChartIcon = ({ active = false }) => (
@@ -46,8 +47,11 @@ const TrashIcon = () => (
 const Menu = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All Items');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
-  const menuItems = [
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([
     {
       id: 1,
       name: 'Matcha Latte',
@@ -112,7 +116,32 @@ const Menu = () => {
       status: 'Available',
       image: '🍫',
     },
-  ];
+  ]);
+
+  const handleEdit = (updatedItem: MenuItem) => {
+    setMenuItems(items => items.map(item => 
+      item.id === updatedItem.id ? updatedItem : item
+    ));
+    setEditingId(null);
+  };
+
+  const handleDeleteClick = (id: number) => {
+    setItemToDelete(id);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (itemToDelete !== null) {
+      setMenuItems(items => items.filter(item => item.id !== itemToDelete));
+      setDeleteModalVisible(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalVisible(false);
+    setItemToDelete(null);
+  };
 
   const categories = [
     'All Items',
@@ -188,39 +217,66 @@ const Menu = () => {
         showsVerticalScrollIndicator={false}
       >
         {filteredMenuItems.map((item) => (
-          <View key={item.id} style={styles.menuItemCard}>
-            <View style={styles.menuItemImage}>
-              <Text style={styles.menuItemEmoji}>{item.image}</Text>
-            </View>
-            <View style={styles.menuItemDetails}>
-              <Text style={styles.menuItemName}>{item.name}</Text>
-              <Text style={styles.menuItemCategory}>{item.category}</Text>
-              <View style={[
-                styles.statusTag,
-                item.status === 'Available' ? styles.availableTag : styles.unavailableTag,
-              ]}>
-                <Text style={[
-                  styles.statusTagText,
-                  item.status === 'Available' ? styles.availableTagText : styles.unavailableTagText,
-                ]}>
-                  {item.status}
-                </Text>
+          <React.Fragment key={item.id}>
+            {editingId === item.id ? (
+              <EditMode
+                item={item}
+                onSave={handleEdit}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : (
+              <View style={styles.menuItemCard}>
+                <View style={styles.menuItemImage}>
+                  {item.image.startsWith('http') || item.image.startsWith('file://') ? (
+                    <Image source={{ uri: item.image }} style={styles.menuItemImageLoaded} />
+                  ) : (
+                    <Text style={styles.menuItemEmoji}>{item.image}</Text>
+                  )}
+                </View>
+                <View style={styles.menuItemDetails}>
+                  <Text style={styles.menuItemName}>{item.name}</Text>
+                  <Text style={styles.menuItemCategory}>{item.category}</Text>
+                  <View style={[
+                    styles.statusTag,
+                    item.status === 'Available' ? styles.availableTag : styles.unavailableTag,
+                  ]}>
+                    <Text style={[
+                      styles.statusTagText,
+                      item.status === 'Available' ? styles.availableTagText : styles.unavailableTagText,
+                    ]}>
+                      {item.status}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.menuItemActions}>
+                  <Text style={styles.menuItemPrice}>{item.price}</Text>
+                  <View style={styles.actionIcons}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => setEditingId(item.id)}
+                    >
+                      <EditIcon active={false} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => handleDeleteClick(item.id)}
+                    >
+                      <TrashIcon />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-            <View style={styles.menuItemActions}>
-              <Text style={styles.menuItemPrice}>{item.price}</Text>
-              <View style={styles.actionIcons}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <EditIcon active={false} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <TrashIcon />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+            )}
+          </React.Fragment>
         ))}
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        visible={deleteModalVisible}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
@@ -366,6 +422,11 @@ const styles = StyleSheet.create({
   },
   menuItemEmoji: {
     fontSize: 28,
+  },
+  menuItemImageLoaded: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   menuItemDetails: {
     flex: 1,
