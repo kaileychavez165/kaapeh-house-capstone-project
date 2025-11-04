@@ -33,7 +33,7 @@ interface MenuItemDisplay {
   price: number;
   rating: number;
   category: string;
-  image: any;
+  image_url: string;
   available: boolean;
 }
 
@@ -165,6 +165,21 @@ export default function HomeScreen({ session }: HomeScreenProps) {
     }
   };
 
+  // Helper function to validate if a string is a valid URL
+  const isValidImageUrl = (url: string | null | undefined): boolean => {
+    if (!url || url.trim() === '') return false;
+    
+    try {
+      // Check if it's a valid URL format
+      const urlObj = new URL(url);
+      // Check if it's http or https
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      // If URL parsing fails, it's not a valid URL
+      return false;
+    }
+  };
+
   // Convert MenuItem from database to MenuItemDisplay format for rendering
   const convertToMenuItemDisplay = (items: MenuItem[]): MenuItemDisplay[] => {
     return items.map(item => ({
@@ -174,7 +189,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
       price: item.price,
       rating: 4.8, // Placeholder rating (not sure how we can calculate this and store in DB)
       category: item.category,
-      image: require('../../assets/images/react-logo.png'), // Placeholder image
+      image_url: item.image_url || '', // Use actual image URL from database
       available: item.available, // Available or Sold Out
     }));
   };
@@ -183,7 +198,15 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   const renderMenuItemCard = (item: MenuItemDisplay) => (
     <View key={item.id} style={[styles.drinkCard, !item.available && styles.unavailableCard]}>
       <View style={styles.drinkImageContainer}>
-        <Image source={item.image} style={[styles.drinkImage, !item.available && styles.unavailableImage]} resizeMode="cover" />
+        <Image 
+          source={
+            isValidImageUrl(item.image_url)
+              ? { uri: item.image_url }
+              : require('../../assets/images/no-image-available.jpg')
+          } 
+          style={[styles.drinkImage, !item.available && styles.unavailableImage]} 
+          resizeMode="cover" 
+        />
         {!item.available && (
           <View style={styles.soldOutOverlay}>
             <Text style={styles.soldOutText}>SOLD OUT</Text>
