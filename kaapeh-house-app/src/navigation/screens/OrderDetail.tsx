@@ -13,6 +13,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCart, CartItem } from '../../context/CartContext';
+import BottomNavigationBar from '../../components/BottomNavigationBar';
 
 // Define the route params interface (optional, for backward compatibility)
 type RootStackParamList = {
@@ -107,23 +108,16 @@ export default function OrderDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F1E8" />
+      <StatusBar barStyle="light-content" backgroundColor="#2B2B2B" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#2B2B2B" />
-        </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>Order</Text>
-        
-        <View style={styles.headerSpacer} />
+        <Text style={styles.logoText}>Order Checkout</Text>
       </View>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      {/* Main Content */}
+      <View style={styles.content}>
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Pick Up Details Section */}
         <View style={styles.pickupSection}>
           <View style={styles.pickupMethodContainer}>
@@ -269,14 +263,18 @@ export default function OrderDetailScreen() {
             <MaterialCommunityIcons name="chevron-down" size={20} color="#666666" />
           </TouchableOpacity>
         </View>
-      </ScrollView>
 
-      {/* Order Button */}
-      <View style={styles.orderButtonContainer}>
-        <TouchableOpacity style={styles.orderButton}>
-          <Text style={styles.orderButtonText}>Order</Text>
-        </TouchableOpacity>
+        {/* Order Button */}
+        <View style={styles.orderButtonContainer}>
+          <TouchableOpacity style={styles.orderButton}>
+            <Text style={styles.orderButtonText}>Order</Text>
+          </TouchableOpacity>
+        </View>
+        </ScrollView>
       </View>
+
+      {/* Bottom Navigation Bar */}
+      <BottomNavigationBar currentScreen="Shopping" />
     </SafeAreaView>
   );
 }
@@ -284,32 +282,34 @@ export default function OrderDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F1E8',
+    backgroundColor: '#2B2B2B',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#F5F1E8',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingBottom: 24,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
+  logoText: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#2B2B2B',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
-  headerSpacer: {
-    width: 40,
+  content: {
+    flex: 1,
+    backgroundColor: '#F5F1E8',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 32,
+    paddingHorizontal: 24,
   },
   scrollContainer: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
   pickupSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   pickupMethodContainer: {
@@ -412,10 +412,8 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#E0E0E0',
-    marginHorizontal: 20,
   },
   itemsSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   itemCard: {
@@ -462,7 +460,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   rewardsSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   rewardsButton: {
@@ -481,7 +478,6 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   paymentSummarySection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   paymentSummaryTitle: {
@@ -516,7 +512,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   paymentMethodSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   paymentMethodButton: {
@@ -543,7 +538,6 @@ const styles = StyleSheet.create({
     color: '#2B2B2B',
   },
   orderButtonContainer: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
