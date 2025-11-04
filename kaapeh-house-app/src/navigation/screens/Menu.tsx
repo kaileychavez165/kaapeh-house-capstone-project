@@ -58,6 +58,7 @@ const Menu = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingItem, setAddingItem] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -139,6 +140,16 @@ const Menu = () => {
     }
   };
 
+  const handleAddItem = (newItem: Omit<MenuItem, 'id'>) => {
+    const maxId = Math.max(...menuItems.map(item => item.id), 0);
+    const newMenuItem: MenuItem = {
+      ...newItem,
+      id: maxId + 1,
+    };
+    setMenuItems(items => [newMenuItem, ...items]);
+    setAddingItem(false);
+  };
+
   const handleDeleteClick = (id: string) => {
     setItemToDelete(id);
     setDeleteModalVisible(true);
@@ -189,7 +200,10 @@ const Menu = () => {
           <Text style={styles.headerTitle}>Menu</Text>
           <Text style={styles.headerSubtitle}>View and manage the menu</Text>
         </View>
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setAddingItem(true)}
+        >
           <Text style={styles.addButtonText}>+</Text>
         </TouchableOpacity>
       </View>
@@ -228,6 +242,13 @@ const Menu = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
+        {addingItem && (
+          <AddItemMode
+            categories={categories}
+            onSave={handleAddItem}
+            onCancel={() => setAddingItem(false)}
+          />
+        )}
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#20B2AA" />
