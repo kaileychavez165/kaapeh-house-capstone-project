@@ -113,8 +113,12 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
     }
 
     const priceValue = parseFloat(editedPrice.replace('$', '').trim());
-    if (isNaN(priceValue) || priceValue <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid price');
+    // Allow $0 price for Extras category items, otherwise require > 0
+    const isExtrasCategory = item.category === 'Extras';
+    if (isNaN(priceValue) || (!isExtrasCategory && priceValue <= 0) || (isExtrasCategory && priceValue < 0)) {
+      Alert.alert('Validation Error', isExtrasCategory 
+        ? 'Please enter a valid price (can be $0 for Extras items)' 
+        : 'Please enter a valid price');
       return;
     }
 
@@ -260,7 +264,7 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         <TouchableOpacity
           style={[styles.cancelButton, (isSaving || isUploading) && styles.disabledButton]}
           onPress={onCancel}
-          disabled={uploading}
+          disabled={isUploading}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
@@ -282,7 +286,8 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
   const [category, setCategory] = React.useState<string>('');
   const [status, setStatus] = React.useState<'Available' | 'Unavailable'>('Available');
   const [selectedImageUri, setSelectedImageUri] = React.useState<string | null>(null);
-  const [uploading, setUploading] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   // Filter out "All Items" from categories for selection
   const selectableCategories = categories.filter(cat => cat !== 'All Items');
@@ -308,43 +313,57 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
   };
 
   const handleSave = async () => {
+    // Validate inputs
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Please enter an item name.');
+      Alert.alert('Validation Error', 'Item name is required');
       return;
     }
-    if (!price.trim()) {
-      Alert.alert('Validation Error', 'Please enter a price.');
-      return;
-    }
+
     if (!category) {
       Alert.alert('Validation Error', 'Please select a category.');
       return;
     }
 
-    try {
-      setUploading(true);
-      let finalImageUrl = '☕';
+    const priceValue = parseFloat(price.replace('$', '').trim());
+    // Allow $0 price for Extras category items, otherwise require > 0
+    const isExtrasCategory = category === 'Extras';
+    if (isNaN(priceValue) || (!isExtrasCategory && priceValue <= 0) || (isExtrasCategory && priceValue < 0)) {
+      Alert.alert('Validation Error', isExtrasCategory 
+        ? 'Please enter a valid price (can be $0 for Extras items)' 
+        : 'Please enter a valid price');
+      return;
+    }
 
-      // Upload image if one was selected (and it's a local file)
-      if (selectedImageUri && (selectedImageUri.startsWith('file://') || selectedImageUri.startsWith('ph://') || selectedImageUri.startsWith('assets-library://'))) {
+    setIsSaving(true);
+
+    try {
+      let imageUrl = '';
+
+      // Upload image if one was selected
+      if (selectedImageUri) {
+        setIsUploading(true);
         try {
-          finalImageUrl = await uploadMenuImage(selectedImageUri, name.trim());
+          // Generate a unique filename
+          const fileName = `${name.trim().replace(/\s+/g, '-')}-${Date.now()}.jpg`;
+          imageUrl = await uploadImageToStorage(selectedImageUri, fileName);
         } catch (error) {
-          Alert.alert('Upload Error', 'Failed to upload image. Using default emoji.');
-          console.error('Image upload error:', error);
+          console.error('Error uploading image:', error);
+          Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
+          setIsUploading(false);
+          setIsSaving(false);
+          return;
         }
-      } else if (selectedImageUri) {
-        // If it's already a URL, use it directly
-        finalImageUrl = selectedImageUri;
+        setIsUploading(false);
       }
 
+      // Call onSave with new item data
       onSave({
         name: name.trim(),
         description: description.trim(),
         category,
-        price: price.trim(),
-        status,
-        image: finalImageUrl,
+        price: priceValue,
+        available: status === 'Available',
+        image_url: imageUrl,
       });
       
       // Reset form
@@ -355,10 +374,10 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       setStatus('Available');
       setSelectedImageUri(null);
     } catch (error) {
-      Alert.alert('Error', 'Failed to save item. Please try again.');
-      console.error('Save error:', error);
+      console.error('Error saving item:', error);
+      Alert.alert('Save Error', 'Failed to save item. Please try again.');
     } finally {
-      setUploading(false);
+      setIsSaving(false);
     }
   };
 
@@ -389,9 +408,9 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
         style={styles.editInput}
         value={price}
         onChangeText={setPrice}
-        placeholder="Price *"
+        placeholder="Price (e.g., 5.50)"
         placeholderTextColor="#9CA3AF"
-        keyboardType="default"
+        keyboardType="decimal-pad"
       />
 
       {/* Category Selector */}
@@ -434,12 +453,17 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
           />
         )}
         <TouchableOpacity
-          style={styles.imagePickerButton}
+          style={[styles.imagePickerButton, isUploading && styles.disabledButton]}
           onPress={handlePickImage}
+          disabled={isUploading}
         >
-          <Text style={styles.imagePickerButtonText}>
-            {selectedImageUri ? 'Change Image' : 'Select Image'}
-          </Text>
+          {isUploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.imagePickerButtonText}>
+              {selectedImageUri ? 'Change Image' : 'Select Image'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
       
@@ -482,20 +506,20 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       {/* Action Buttons */}
       <View style={styles.editActions}>
         <TouchableOpacity
-          style={[styles.saveButton, uploading && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (isSaving || isUploading) && styles.disabledButton]}
           onPress={handleSave}
-          disabled={uploading}
+          disabled={isSaving || isUploading}
         >
-          {uploading ? (
+          {isSaving || isUploading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.saveButtonText}>Add Item</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={[styles.cancelButton, (isSaving || isUploading) && styles.disabledButton]}
           onPress={onCancel}
-          disabled={isSaving || isUploading}
+          disabled={isUploading}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>

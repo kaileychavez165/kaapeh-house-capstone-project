@@ -97,10 +97,10 @@ export default function HomeScreen({ session }: HomeScreenProps) {
       setLoading(true);
       console.log('🔄 Loading initial data...');
       
-      // Fetch categories and menu items in parallel
+      // Fetch categories and menu items in parallel (exclude admin categories for customers)
       const [categoriesData, menuItemsData] = await Promise.all([
         fetchMenuCategories(),
-        fetchMenuItems()
+        fetchMenuItems(true) // Exclude admin categories
       ]);
       
       // Fetch user profile separately if session exists
@@ -137,9 +137,9 @@ export default function HomeScreen({ session }: HomeScreenProps) {
       let data: MenuItem[];
       
       if (selectedCategory === 'All Items') {
-        data = await fetchMenuItems();
+        data = await fetchMenuItems(true); // Exclude admin categories
       } else {
-        data = await fetchMenuItemsByCategory(selectedCategory);
+        data = await fetchMenuItemsByCategory(selectedCategory, true); // Exclude admin categories
       }
       
       console.log('🍽️ Menu items loaded for category:', data.length, 'items');
@@ -155,7 +155,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   const performSearch = async () => {
     try {
       setLoading(true);
-      const data = await searchMenuItems(searchQuery);
+      const data = await searchMenuItems(searchQuery, true); // Exclude admin categories
       setMenuItems(convertToMenuItemDisplay(data));
     } catch (error) {
       console.error('Error searching menu items:', error);
