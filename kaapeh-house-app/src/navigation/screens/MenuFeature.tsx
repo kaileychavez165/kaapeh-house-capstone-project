@@ -77,6 +77,7 @@ interface EditModeProps {
 
 export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) => {
   const [editedName, setEditedName] = React.useState(item.name);
+  const [editedDescription, setEditedDescription] = React.useState(item.description || '');
   const [editedPrice, setEditedPrice] = React.useState(item.price);
   const [editedStatus, setEditedStatus] = React.useState(item.status);
   const [editedImage, setEditedImage] = React.useState(item.image);
@@ -124,6 +125,7 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
       onSave({
         ...item,
         name: editedName,
+        description: editedDescription,
         price: editedPrice,
         status: editedStatus,
         image: finalImageUrl,
@@ -143,12 +145,24 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         value={editedName}
         onChangeText={setEditedName}
         placeholder="Item name"
+        placeholderTextColor="#9CA3AF"
+      />
+      <TextInput
+        style={[styles.editInput, styles.descriptionInput]}
+        value={editedDescription}
+        onChangeText={setEditedDescription}
+        placeholder="Description"
+        placeholderTextColor="#9CA3AF"
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
       />
       <TextInput
         style={styles.editInput}
         value={editedPrice}
         onChangeText={setEditedPrice}
         placeholder="Price"
+        placeholderTextColor="#9CA3AF"
         keyboardType="default"
       />
 
