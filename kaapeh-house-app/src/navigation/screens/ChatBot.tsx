@@ -288,6 +288,7 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
     paddingBottom: 8,
+    flexGrow: 1,
   },
   messageContainer: {
     flexDirection: 'row',
@@ -345,6 +346,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',

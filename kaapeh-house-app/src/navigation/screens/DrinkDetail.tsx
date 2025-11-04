@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -198,7 +199,11 @@ export default function DrinkDetailScreen() {
                 temperature: isDrink ? selectedTemperature : 'Regular',
                 quantity: 1
               } as any);
-              (navigation as any).navigate('OrderDetail');
+              Alert.alert(
+                'Success',
+                'Item has been added to cart',
+                [{ text: 'OK', style: 'default' }]
+              );
             }}
           >
             <Text style={styles.buyButtonText}>

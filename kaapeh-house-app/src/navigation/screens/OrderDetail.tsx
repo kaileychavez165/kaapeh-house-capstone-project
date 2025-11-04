@@ -10,29 +10,64 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useCart } from '../../context/CartContext';
+import { useCart, CartItem } from '../../context/CartContext';
+
+// Define the route params interface (optional, for backward compatibility)
+type RootStackParamList = {
+  OrderDetail: {
+    cartItems?: Array<{
+      id: string;
+      name: string;
+      description: string;
+      price: number;
+      rating: number;
+      category: string;
+      image: any;
+      available: boolean;
+      size: string;
+      temperature: string;
+      quantity: number;
+    }>;
+  };
+};
+
+type OrderDetailRouteProp = RouteProp<RootStackParamList, 'OrderDetail'>;
 
 interface OrderDetailScreenProps {}
 
+// Helper function to create unique key for items with same ID but different size/temperature
+const getItemKey = (item: CartItem) => {
+  return `${item.id}-${item.size}-${item.temperature}`;
+};
+
 export default function OrderDetailScreen() {
   const navigation = useNavigation();
-  const { items: cartItems, setQuantity } = useCart();
+  const route = useRoute<OrderDetailRouteProp>();
+  const { items: cartItemsFromContext, setQuantity, removeItem } = useCart();
+  // Use cart items from context, fallback to route params if provided
+  const cartItems = route.params?.cartItems || cartItemsFromContext;
   
-  const [quantities, setQuantities] = useState<{[key: string]: number}>(() => (
-    cartItems.reduce((acc, item) => ({ ...acc, [item.id + '|' + item.size + '|' + item.temperature]: item.quantity || 1 }), {})
-  ));
+  const [quantities, setQuantities] = useState<{[key: string]: number}>(
+    cartItems.reduce((acc, item) => ({ ...acc, [getItemKey(item)]: item.quantity || 1 }), {})
+  );
   const [selectedDeliveryTime, setSelectedDeliveryTime] = useState('5 minutes');
   const [showDeliveryDropdown, setShowDeliveryDropdown] = useState(false);
+
+  // Sync quantities when cartItems change
+  React.useEffect(() => {
+    const newQuantities = cartItems.reduce((acc, item) => ({ ...acc, [getItemKey(item)]: item.quantity || 1 }), {});
+    setQuantities(newQuantities);
+  }, [cartItems]);
 
   const deliveryTimes = ['5 minutes', '10 minutes', '15 minutes', '20 minutes'];
 
   // Calculate totals
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
-      const key = item.id + '|' + item.size + '|' + item.temperature;
-      return total + (item.price * (quantities[key] || item.quantity || 1));
+      const itemKey = getItemKey(item);
+      return total + (item.price * quantities[itemKey]);
     }, 0);
   };
 
@@ -40,17 +75,34 @@ export default function OrderDetailScreen() {
   const discountDeliveryFee = 1.0;
   const total = subtotal + discountDeliveryFee;
 
-  const updateQuantity = (item: { id: string; size: string; temperature: string }, change: number) => {
-    const key = item.id + '|' + item.size + '|' + item.temperature;
-    setQuantities(prev => {
-      const next = Math.max(1, (prev[key] || 1) + change);
-      // sync to context
-      setQuantity(item.id, next, { size: item.size, temperature: item.temperature });
-      return {
-        ...prev,
-        [key]: next,
-      };
-    });
+  const updateQuantity = (item: CartItem, change: number) => {
+    const itemKey = getItemKey(item);
+    const currentQuantity = quantities[itemKey] || item.quantity || 1;
+    const newQuantity = currentQuantity + change;
+    
+    // If decreasing and quantity would be 0 or less, remove the item
+    if (change < 0 && currentQuantity <= 1) {
+      // Remove from cart context
+      removeItem(item.id, { size: item.size, temperature: item.temperature });
+      // Remove from local quantities state
+      setQuantities(prev => {
+        const updated = { ...prev };
+        delete updated[itemKey];
+        return updated;
+      });
+      return;
+    }
+    
+    // Otherwise, update the quantity (minimum 1)
+    const updatedQuantity = Math.max(1, newQuantity);
+    
+    setQuantities(prev => ({
+      ...prev,
+      [itemKey]: updatedQuantity
+    }));
+    
+    // Update cart context
+    setQuantity(item.id, updatedQuantity, { size: item.size, temperature: item.temperature });
   };
 
   return (
@@ -140,30 +192,33 @@ export default function OrderDetailScreen() {
         {/* Items Section */}
         <View style={styles.itemsSection}>
           {cartItems.length > 0 ? (
-            cartItems.map((item) => (
-              <View key={item.id} style={styles.itemCard}>
-                <Image source={item.image} style={styles.itemImage} resizeMode="cover" />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemDescription}>{item.temperature} • {item.size}</Text>
+            cartItems.map((item) => {
+              const itemKey = getItemKey(item);
+              return (
+                <View key={itemKey} style={styles.itemCard}>
+                  <Image source={item.image} style={styles.itemImage} resizeMode="cover" />
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemDescription}>{item.temperature} • {item.size}</Text>
+                  </View>
+                  <View style={styles.quantitySelector}>
+                    <TouchableOpacity 
+                      style={styles.quantityButton}
+                      onPress={() => updateQuantity(item, -1)}
+                    >
+                      <MaterialCommunityIcons name="minus" size={16} color="#666666" />
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{quantities[itemKey] || item.quantity || 1}</Text>
+                    <TouchableOpacity 
+                      style={styles.quantityButton}
+                      onPress={() => updateQuantity(item, 1)}
+                    >
+                      <MaterialCommunityIcons name="plus" size={16} color="#666666" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={styles.quantitySelector}>
-                  <TouchableOpacity 
-                    style={styles.quantityButton}
-                    onPress={() => updateQuantity(item, -1)}
-                  >
-                    <MaterialCommunityIcons name="minus" size={16} color="#666666" />
-                  </TouchableOpacity>
-                  <Text style={styles.quantityText}>{quantities[item.id + '|' + item.size + '|' + item.temperature] || item.quantity}</Text>
-                  <TouchableOpacity 
-                    style={styles.quantityButton}
-                    onPress={() => updateQuantity(item, 1)}
-                  >
-                    <MaterialCommunityIcons name="plus" size={16} color="#666666" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyCartContainer}>
               <MaterialCommunityIcons name="cart-outline" size={48} color="#999999" />
