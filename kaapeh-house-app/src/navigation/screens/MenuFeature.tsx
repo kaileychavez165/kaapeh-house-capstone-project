@@ -8,8 +8,11 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadMenuImage } from '../../services/menuService';
 
 export interface MenuItem {
   id: number;
@@ -18,6 +21,7 @@ export interface MenuItem {
   price: string;
   status: 'Available' | 'Unavailable';
   image: string;
+  description?: string;
 }
 
 interface DeleteModalProps {
@@ -77,6 +81,7 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
   const [editedStatus, setEditedStatus] = React.useState(item.status);
   const [editedImage, setEditedImage] = React.useState(item.image);
   const [selectedImageUri, setSelectedImageUri] = React.useState<string | null>(null);
+  const [uploading, setUploading] = React.useState(false);
 
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -98,14 +103,37 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
     }
   };
 
-  const handleSave = () => {
-    onSave({
-      ...item,
-      name: editedName,
-      price: editedPrice,
-      status: editedStatus,
-      image: selectedImageUri || editedImage,
-    });
+  const handleSave = async () => {
+    try {
+      setUploading(true);
+      let finalImageUrl = editedImage;
+
+      // Upload new image if one was selected (and it's a local file, not already a URL)
+      if (selectedImageUri && (selectedImageUri.startsWith('file://') || selectedImageUri.startsWith('ph://') || selectedImageUri.startsWith('assets-library://'))) {
+        try {
+          finalImageUrl = await uploadMenuImage(selectedImageUri, editedName || item.name);
+        } catch (error) {
+          Alert.alert('Upload Error', 'Failed to upload image. Using existing image or default.');
+          console.error('Image upload error:', error);
+        }
+      } else if (selectedImageUri) {
+        // If it's already a URL, use it directly
+        finalImageUrl = selectedImageUri;
+      }
+
+      onSave({
+        ...item,
+        name: editedName,
+        price: editedPrice,
+        status: editedStatus,
+        image: finalImageUrl,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save item. Please try again.');
+      console.error('Save error:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -181,14 +209,255 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
       {/* Action Buttons */}
       <View style={styles.editActions}>
         <TouchableOpacity
-          style={styles.saveButton}
+          style={[styles.saveButton, uploading && styles.saveButtonDisabled]}
           onPress={handleSave}
+          disabled={uploading}
         >
-          <Text style={styles.saveButtonText}>Save</Text>
+          {uploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save</Text>
+          )}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.cancelButton}
           onPress={onCancel}
+          disabled={uploading}
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+interface AddItemModeProps {
+  categories: string[];
+  onSave: (newItem: Omit<MenuItem, 'id'>) => void;
+  onCancel: () => void;
+}
+
+export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, onCancel }) => {
+  const [name, setName] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [price, setPrice] = React.useState('');
+  const [category, setCategory] = React.useState<string>('');
+  const [status, setStatus] = React.useState<'Available' | 'Unavailable'>('Available');
+  const [selectedImageUri, setSelectedImageUri] = React.useState<string | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  // Filter out "All Items" from categories for selection
+  const selectableCategories = categories.filter(cat => cat !== 'All Items');
+
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission required', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert('Validation Error', 'Please enter an item name.');
+      return;
+    }
+    if (!price.trim()) {
+      Alert.alert('Validation Error', 'Please enter a price.');
+      return;
+    }
+    if (!category) {
+      Alert.alert('Validation Error', 'Please select a category.');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      let finalImageUrl = '☕';
+
+      // Upload image if one was selected (and it's a local file)
+      if (selectedImageUri && (selectedImageUri.startsWith('file://') || selectedImageUri.startsWith('ph://') || selectedImageUri.startsWith('assets-library://'))) {
+        try {
+          finalImageUrl = await uploadMenuImage(selectedImageUri, name.trim());
+        } catch (error) {
+          Alert.alert('Upload Error', 'Failed to upload image. Using default emoji.');
+          console.error('Image upload error:', error);
+        }
+      } else if (selectedImageUri) {
+        // If it's already a URL, use it directly
+        finalImageUrl = selectedImageUri;
+      }
+
+      onSave({
+        name: name.trim(),
+        description: description.trim(),
+        category,
+        price: price.trim(),
+        status,
+        image: finalImageUrl,
+      });
+      
+      // Reset form
+      setName('');
+      setDescription('');
+      setPrice('');
+      setCategory('');
+      setStatus('Available');
+      setSelectedImageUri(null);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save item. Please try again.');
+      console.error('Save error:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <View style={styles.editMode}>
+      <Text style={styles.addItemTitle}>Add New Menu Item</Text>
+      
+      <TextInput
+        style={styles.editInput}
+        value={name}
+        onChangeText={setName}
+        placeholder="Item name *"
+        placeholderTextColor="#9CA3AF"
+      />
+      
+      <TextInput
+        style={[styles.editInput, styles.descriptionInput]}
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Description"
+        placeholderTextColor="#9CA3AF"
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
+      />
+
+      <TextInput
+        style={styles.editInput}
+        value={price}
+        onChangeText={setPrice}
+        placeholder="Price *"
+        placeholderTextColor="#9CA3AF"
+        keyboardType="default"
+      />
+
+      {/* Category Selector */}
+      <View style={styles.categorySelectorContainer}>
+        <Text style={styles.categorySelectorLabel}>Category *</Text>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.categorySelectorScroll}
+          contentContainerStyle={styles.categorySelectorContent}
+        >
+          {selectableCategories.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={[
+                styles.categoryOption,
+                category === cat && styles.categoryOptionSelected,
+              ]}
+              onPress={() => setCategory(cat)}
+            >
+              <Text
+                style={[
+                  styles.categoryOptionText,
+                  category === cat && styles.categoryOptionTextSelected,
+                ]}
+              >
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Image Picker */}
+      <View style={styles.imagePickerContainer}>
+        {selectedImageUri && (
+          <Image
+            source={{ uri: selectedImageUri }}
+            style={styles.previewImage}
+          />
+        )}
+        <TouchableOpacity
+          style={styles.imagePickerButton}
+          onPress={handlePickImage}
+        >
+          <Text style={styles.imagePickerButtonText}>
+            {selectedImageUri ? 'Change Image' : 'Select Image'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Status Toggle */}
+      <View style={styles.statusToggleContainer}>
+        <TouchableOpacity
+          style={[
+            styles.statusToggle,
+            status === 'Available' && styles.statusToggleActive,
+          ]}
+          onPress={() => setStatus('Available')}
+        >
+          <Text
+            style={[
+              styles.statusToggleText,
+              status === 'Available' && styles.statusToggleTextActive,
+            ]}
+          >
+            Available
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.statusToggle,
+            status === 'Unavailable' && styles.statusToggleActive,
+          ]}
+          onPress={() => setStatus('Unavailable')}
+        >
+          <Text
+            style={[
+              styles.statusToggleText,
+              status === 'Unavailable' && styles.statusToggleTextActive,
+            ]}
+          >
+            Unavailable
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.editActions}>
+        <TouchableOpacity
+          style={[styles.saveButton, uploading && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Add Item</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onCancel}
+          disabled={uploading}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
@@ -206,6 +475,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#20B2AA',
   },
+  addItemTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#20B2AA',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
   editInput: {
     borderWidth: 1,
     borderColor: '#E5E5E5',
@@ -214,6 +490,48 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 16,
     backgroundColor: '#F9FAFB',
+    color: '#1F2937',
+  },
+  descriptionInput: {
+    minHeight: 100,
+    paddingTop: 12,
+  },
+  categorySelectorContainer: {
+    marginBottom: 12,
+  },
+  categorySelectorLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  categorySelectorScroll: {
+    maxHeight: 50,
+  },
+  categorySelectorContent: {
+    paddingRight: 10,
+  },
+  categoryOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  categoryOptionSelected: {
+    backgroundColor: '#20B2AA',
+    borderColor: '#20B2AA',
+  },
+  categoryOptionText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  categoryOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   statusToggleContainer: {
     flexDirection: 'row',
@@ -252,6 +570,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     color: '#FFFFFF',

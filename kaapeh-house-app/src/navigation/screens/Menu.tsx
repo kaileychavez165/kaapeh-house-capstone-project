@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
-import { EditMode, DeleteConfirmationModal, MenuItem } from './MenuFeature';
+import { EditMode, DeleteConfirmationModal, AddItemMode, MenuItem } from './MenuFeature';
 
 // Navigation Icons
 const ChartIcon = ({ active = false }) => (
@@ -48,6 +48,7 @@ const Menu = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [addingItem, setAddingItem] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
@@ -125,6 +126,16 @@ const Menu = () => {
     setEditingId(null);
   };
 
+  const handleAddItem = (newItem: Omit<MenuItem, 'id'>) => {
+    const maxId = Math.max(...menuItems.map(item => item.id), 0);
+    const newMenuItem: MenuItem = {
+      ...newItem,
+      id: maxId + 1,
+    };
+    setMenuItems(items => [newMenuItem, ...items]);
+    setAddingItem(false);
+  };
+
   const handleDeleteClick = (id: number) => {
     setItemToDelete(id);
     setDeleteModalVisible(true);
@@ -177,7 +188,10 @@ const Menu = () => {
           <Text style={styles.headerTitle}>Menu</Text>
           <Text style={styles.headerSubtitle}>View and manage the menu</Text>
         </View>
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setAddingItem(true)}
+        >
           <Text style={styles.addButtonText}>+</Text>
         </TouchableOpacity>
       </View>
@@ -216,6 +230,13 @@ const Menu = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
+        {addingItem && (
+          <AddItemMode
+            categories={categories}
+            onSave={handleAddItem}
+            onCancel={() => setAddingItem(false)}
+          />
+        )}
         {filteredMenuItems.map((item) => (
           <React.Fragment key={item.id}>
             {editingId === item.id ? (
@@ -227,10 +248,17 @@ const Menu = () => {
             ) : (
               <View style={styles.menuItemCard}>
                 <View style={styles.menuItemImage}>
-                  {item.image.startsWith('http') || item.image.startsWith('file://') ? (
-                    <Image source={{ uri: item.image }} style={styles.menuItemImageLoaded} />
+                  {item.image && (item.image.startsWith('http://') || item.image.startsWith('https://') || item.image.startsWith('file://') || item.image.startsWith('ph://') || item.image.startsWith('assets-library://')) ? (
+                    <Image 
+                      source={{ uri: item.image }} 
+                      style={styles.menuItemImageLoaded}
+                      onError={() => {
+                        console.warn('Failed to load image:', item.image);
+                      }}
+                      defaultSource={require('../../assets/images/icon.png')}
+                    />
                   ) : (
-                    <Text style={styles.menuItemEmoji}>{item.image}</Text>
+                    <Text style={styles.menuItemEmoji}>{item.image || '☕'}</Text>
                   )}
                 </View>
                 <View style={styles.menuItemDetails}>
