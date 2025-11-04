@@ -21,7 +21,7 @@ export default function BottomNavigationBar({ currentScreen = 'Home' }: BottomNa
       id: 'Favorites',
       icon: 'heart',
       iconOutline: 'heart-outline',
-      active: currentScreen === 'Favorites',
+      active: currentScreen === 'Favorites' || currentScreen === 'MyOrder',
     },
     {
       id: 'Shopping',
@@ -44,6 +44,8 @@ export default function BottomNavigationBar({ currentScreen = 'Home' }: BottomNa
       (navigation as any).navigate('Account');
     } else if (screenId === 'Shopping') {
       (navigation as any).navigate('OrderDetail');
+    } else if (screenId === 'Favorites') {
+      (navigation as any).navigate('MyOrder');
     }
     // Add more navigation cases as needed for other screens
   };

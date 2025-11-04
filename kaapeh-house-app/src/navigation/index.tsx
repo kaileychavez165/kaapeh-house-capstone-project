@@ -16,6 +16,7 @@ import { supabase } from '../../utils/supabase';
 import ChatBotScreen from './screens/ChatBot';
 import DrinkDetailScreen from './screens/DrinkDetail';
 import OrderDetailScreen from './screens/OrderDetail';
+import MyOrderScreen from './screens/MyOrder';
 
 interface NavigationProps {
   session: Session | null;
@@ -164,6 +165,9 @@ export const Navigation: React.FC<NavigationProps> = ({ session, pendingResetPas
         </Stack.Screen>
         <Stack.Screen name="DrinkDetail" component={DrinkDetailScreen} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+        <Stack.Screen name="MyOrder">
+          {() => session ? <MyOrderScreen session={session} /> : null}
+        </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );
