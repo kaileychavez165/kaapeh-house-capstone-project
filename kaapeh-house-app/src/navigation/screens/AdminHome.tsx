@@ -8,12 +8,15 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  Alert,
   StatusBar,
   Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, Circle, Path, Rect } from 'react-native-svg';
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { supabase } from "../../../utils/supabase";
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,6 +69,16 @@ const AdminHome = () => {
 
 
 
+  const handleSignOut = async () => {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+        Alert.alert("Error signing out", error.message);
+        }
+    } catch (error) {
+        Alert.alert("Error", "An unexpected error occurred while signing out");
+    }
+    };
 
   return (
     <View style={styles.container}>
@@ -136,7 +149,7 @@ const AdminHome = () => {
             </View>
           </View>
         </View>
-
+        
         {/* Top Items */}
         <View style={styles.topItemsSection}>
           <Text style={styles.sectionTitle}>Top Items Today</Text>
@@ -152,6 +165,20 @@ const AdminHome = () => {
             ))}
           </View>
         </View>
+
+        {/* Sign Out Button */}
+       <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+          >
+          <MaterialCommunityIcons
+              name="logout"
+              size={20}
+              color="#FFFFFF"
+              style={styles.buttonIcon}
+          />
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -375,6 +402,24 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#20B2AA',
     marginTop: 4,
+  },
+  signOutButton: {
+    backgroundColor: "#D9534F",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#C9302C",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  signOutButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 });
 

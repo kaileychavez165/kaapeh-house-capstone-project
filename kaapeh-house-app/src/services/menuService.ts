@@ -1,5 +1,5 @@
 import { supabase } from '../../utils/supabase';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File } from 'expo-file-system';
 
 export interface MenuItem {
     id: string;
@@ -99,81 +99,97 @@ export const searchMenuItems = async (query: string): Promise<MenuItem[]> => {
     }
 };
 
-// Upload image to Supabase Storage
-export const uploadMenuImage = async (imageUri: string, itemName: string): Promise<string> => {
+// Update a menu item
+export const updateMenuItem = async (
+    id: string,
+    updates: {
+        name?: string;
+        price?: number;
+        image_url?: string;
+        available?: boolean;
+    }
+): Promise<MenuItem> => {
     try {
-        // Check if user is authenticated
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-            console.warn('⚠️ No active session. Upload may fail if bucket requires authentication.');
+        const { data, error } = await supabase
+            .from('menu_items')
+            .update({
+                ...updates,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating menu item:', error);
+            throw error;
         }
 
-        // Create a unique filename
-        const fileExt = imageUri.split('.').pop()?.split('?')[0] || 'jpg';
-        const fileName = `${itemName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.${fileExt}`;
-        const filePath = `menu-items/${fileName}`;
-        
-        console.log('📤 Starting image upload:', fileName);
+        return data;
+    } catch (error) {
+        console.error('Error in updateMenuItem:', error);
+        throw error;
+    }
+};
 
-        let fileBody: ArrayBuffer | Uint8Array;
-        const contentType = `image/${fileExt === 'jpg' || fileExt === 'jpeg' ? 'jpeg' : fileExt}`;
-        
-        // Check if it's a local file URI (React Native)
-        if (imageUri.startsWith('file://') || imageUri.startsWith('ph://') || imageUri.startsWith('assets-library://')) {
-            // Read file as base64 using expo-file-system
-            const base64 = await FileSystem.readAsStringAsync(imageUri, {
-                encoding: 'base64',
-            });
-            
-            // Convert base64 to ArrayBuffer (works better in React Native)
-            const byteCharacters = atob(base64);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            fileBody = new Uint8Array(byteNumbers);
-        } else {
-            // It's already a URL, fetch it normally
-            const response = await fetch(imageUri);
-            const arrayBuffer = await response.arrayBuffer();
-            fileBody = new Uint8Array(arrayBuffer);
+// Delete a menu item
+export const deleteMenuItem = async (id: string): Promise<void> => {
+    try {
+        const { error } = await supabase
+            .from('menu_items')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting menu item:', error);
+            throw error;
         }
+    } catch (error) {
+        console.error('Error in deleteMenuItem:', error);
+        throw error;
+    }
+};
 
-        // Upload to Supabase Storage using ArrayBuffer/Uint8Array
+// Upload image to Supabase storage
+export const uploadImageToStorage = async (
+    imageUri: string,
+    fileName: string
+): Promise<string> => {
+    try {
+        // Create a File instance from the image URI using the new File API
+        const file = new File(imageUri);
+        
+        // Read file as bytes (returns Uint8Array)
+        const bytes = await file.bytes();
+        
+        // Convert Uint8Array to ArrayBuffer
+        const arrayBuffer = bytes.buffer;
+
+        // Upload to Supabase storage
+        // Supabase accepts ArrayBuffer, Blob, or File
+        const fileExt = fileName.split('.').pop() || 'jpg';
+        const filePath = `${fileName}`;
+
         const { data, error } = await supabase.storage
             .from('menu-images')
-            .upload(filePath, fileBody, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: contentType
+            .upload(filePath, arrayBuffer, {
+                contentType: `image/${fileExt}`,
+                upsert: true, // Replace file if it exists
             });
 
         if (error) {
             console.error('Error uploading image:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
-            // If bucket doesn't exist or permission issue, return original URI as fallback
-            if (error.message?.includes('Bucket not found') || 
-                error.message?.includes('permission') || 
-                error.message?.includes('not found') ||
-                error.message?.includes('new row violates')) {
-                console.warn('Storage bucket not configured. Using local URI.');
-                return imageUri;
-            }
             throw error;
         }
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
+        // Get public URL for the uploaded image
+        const { data: urlData } = supabase.storage
             .from('menu-images')
-            .getPublicUrl(filePath);
+            .getPublicUrl(data.path);
 
-        console.log('✅ Image uploaded successfully:', publicUrl);
-        return publicUrl;
-    } catch (error: any) {
-        console.error('Error in uploadMenuImage:', error);
-        console.error('Error stack:', error?.stack);
-        // Return original URI as fallback if upload fails
-        console.warn('Image upload failed. Using original URI as fallback.');
-        return imageUri;
+        return urlData.publicUrl;
+    } catch (error) {
+        console.error('Error in uploadImageToStorage:', error);
+        throw error;
     }
 };

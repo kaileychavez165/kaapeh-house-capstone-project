@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,20 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
-import { EditMode, DeleteConfirmationModal, AddItemMode, MenuItem } from './MenuFeature';
+import { EditMode, DeleteConfirmationModal, MenuItem } from './MenuFeature';
+import { 
+  fetchMenuItems, 
+  fetchMenuItemsByCategory, 
+  fetchMenuCategories,
+  updateMenuItem,
+  deleteMenuItem,
+  MenuItem as DbMenuItem 
+} from '../../services/menuService';
 
 // Navigation Icons
 const ChartIcon = ({ active = false }) => (
@@ -47,83 +57,87 @@ const TrashIcon = () => (
 const Menu = () => {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All Items');
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [addingItem, setAddingItem] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([
-    {
-      id: 1,
-      name: 'Matcha Latte',
-      category: 'Tea & Other Drinks',
-      price: '$5.50',
-      status: 'Available',
-      image: '🍵',
-    },
-    {
-      id: 2,
-      name: 'Turkey & Cheese Croissant',
-      category: 'Savory Items',
-      price: '$5.00',
-      status: 'Available',
-      image: '🥐',
-    },
-    {
-      id: 3,
-      name: 'Pistachio Cranberry Scone',
-      category: 'Pastries',
-      price: '$4.00',
-      status: 'Unavailable',
-      image: '🥧',
-    },
-    {
-      id: 4,
-      name: 'Iced Caramel Macchiato',
-      category: 'Coffee',
-      price: '$5.50',
-      status: 'Available',
-      image: '☕',
-    },
-    {
-      id: 5,
-      name: 'Frappuccino',
-      category: 'Coffee',
-      price: '$5.50',
-      status: 'Unavailable',
-      image: '🥤',
-    },
-    {
-      id: 6,
-      name: 'Espresso',
-      category: 'Coffee',
-      price: '$3.00',
-      status: 'Available',
-      image: '☕',
-    },
-    {
-      id: 7,
-      name: 'Blueberry Muffin',
-      category: 'Pastries',
-      price: '$3.50',
-      status: 'Available',
-      image: '🧁',
-    },
-    {
-      id: 8,
-      name: 'Hot Chocolate',
-      category: 'Tea & Other Drinks',
-      price: '$4.00',
-      status: 'Available',
-      image: '🍫',
-    },
-  ]);
+  // Convert database MenuItem to display MenuItem
+  const convertDbToDisplay = (dbItem: DbMenuItem): MenuItem => {
+    return {
+      id: dbItem.id,
+      name: dbItem.name,
+      category: dbItem.category,
+      price: dbItem.price,
+      available: dbItem.available,
+      image_url: dbItem.image_url || '',
+      description: dbItem.description,
+    };
+  };
 
-  const handleEdit = (updatedItem: MenuItem) => {
-    setMenuItems(items => items.map(item => 
-      item.id === updatedItem.id ? updatedItem : item
-    ));
-    setEditingId(null);
+  // Load menu items on mount and when category changes
+  useEffect(() => {
+    loadMenuItems();
+  }, [selectedCategory]);
+
+  // Load categories on mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const cats = await fetchMenuCategories();
+      setCategories(cats);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      Alert.alert('Error', 'Failed to load categories');
+    }
+  };
+
+  const loadMenuItems = async () => {
+    try {
+      setLoading(true);
+      let data: DbMenuItem[];
+      
+      if (selectedCategory === 'All Items') {
+        data = await fetchMenuItems();
+      } else {
+        data = await fetchMenuItemsByCategory(selectedCategory);
+      }
+      
+      setMenuItems(data.map(convertDbToDisplay));
+    } catch (error) {
+      console.error('Error loading menu items:', error);
+      Alert.alert('Error', 'Failed to load menu items');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = async (updatedItem: MenuItem) => {
+    try {
+      // Update in database
+      await updateMenuItem(updatedItem.id, {
+        name: updatedItem.name,
+        price: updatedItem.price,
+        image_url: updatedItem.image_url,
+        available: updatedItem.available,
+      });
+
+      // Update local state
+      setMenuItems(items => items.map(item => 
+        item.id === updatedItem.id ? updatedItem : item
+      ));
+      setEditingId(null);
+      Alert.alert('Success', 'Menu item updated successfully');
+    } catch (error) {
+      console.error('Error updating menu item:', error);
+      Alert.alert('Error', 'Failed to update menu item. Please try again.');
+    }
   };
 
   const handleAddItem = (newItem: Omit<MenuItem, 'id'>) => {
@@ -136,16 +150,25 @@ const Menu = () => {
     setAddingItem(false);
   };
 
-  const handleDeleteClick = (id: number) => {
+  const handleDeleteClick = (id: string) => {
     setItemToDelete(id);
     setDeleteModalVisible(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (itemToDelete !== null) {
-      setMenuItems(items => items.filter(item => item.id !== itemToDelete));
-      setDeleteModalVisible(false);
-      setItemToDelete(null);
+      try {
+        await deleteMenuItem(itemToDelete);
+        setMenuItems(items => items.filter(item => item.id !== itemToDelete));
+        setDeleteModalVisible(false);
+        setItemToDelete(null);
+        Alert.alert('Success', 'Menu item deleted successfully');
+      } catch (error) {
+        console.error('Error deleting menu item:', error);
+        Alert.alert('Error', 'Failed to delete menu item. Please try again.');
+        setDeleteModalVisible(false);
+        setItemToDelete(null);
+      }
     }
   };
 
@@ -153,17 +176,6 @@ const Menu = () => {
     setDeleteModalVisible(false);
     setItemToDelete(null);
   };
-
-  const categories = [
-    'All Items',
-    'Coffee',
-    'Tea & Other Drinks',
-    'Pastries',
-    'Savory Items',
-    'Seasonal Items',
-    'Food',
-    'Extras',
-  ];
 
   const filteredMenuItems = selectedCategory === 'All Items'
     ? menuItems
@@ -203,7 +215,7 @@ const Menu = () => {
         style={styles.categoryFilter}
         contentContainerStyle={styles.categoryFilterContent}
       >
-        {categories.map((category) => (
+        {categories.length > 0 ? categories.map((category) => (
           <TouchableOpacity
             key={category}
             style={[
@@ -221,7 +233,7 @@ const Menu = () => {
               {category}
             </Text>
           </TouchableOpacity>
-        ))}
+        )) : null}
       </ScrollView>
 
       {/* Menu Item List */}
@@ -237,66 +249,70 @@ const Menu = () => {
             onCancel={() => setAddingItem(false)}
           />
         )}
-        {filteredMenuItems.map((item) => (
-          <React.Fragment key={item.id}>
-            {editingId === item.id ? (
-              <EditMode
-                item={item}
-                onSave={handleEdit}
-                onCancel={() => setEditingId(null)}
-              />
-            ) : (
-              <View style={styles.menuItemCard}>
-                <View style={styles.menuItemImage}>
-                  {item.image && (item.image.startsWith('http://') || item.image.startsWith('https://') || item.image.startsWith('file://') || item.image.startsWith('ph://') || item.image.startsWith('assets-library://')) ? (
-                    <Image 
-                      source={{ uri: item.image }} 
-                      style={styles.menuItemImageLoaded}
-                      onError={() => {
-                        console.warn('Failed to load image:', item.image);
-                      }}
-                      defaultSource={require('../../assets/images/icon.png')}
-                    />
-                  ) : (
-                    <Text style={styles.menuItemEmoji}>{item.image || '☕'}</Text>
-                  )}
-                </View>
-                <View style={styles.menuItemDetails}>
-                  <Text style={styles.menuItemName}>{item.name}</Text>
-                  <Text style={styles.menuItemCategory}>{item.category}</Text>
-                  <View style={[
-                    styles.statusTag,
-                    item.status === 'Available' ? styles.availableTag : styles.unavailableTag,
-                  ]}>
-                    <Text style={[
-                      styles.statusTagText,
-                      item.status === 'Available' ? styles.availableTagText : styles.unavailableTagText,
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#20B2AA" />
+            <Text style={styles.loadingText}>Loading menu items...</Text>
+          </View>
+        ) : filteredMenuItems.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No items found</Text>
+          </View>
+        ) : (
+          filteredMenuItems.map((item) => (
+            <React.Fragment key={item.id}>
+              {editingId === item.id ? (
+                <EditMode
+                  item={item}
+                  onSave={handleEdit}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : (
+                <View style={styles.menuItemCard}>
+                  <View style={styles.menuItemImage}>
+                    {item.image_url && (item.image_url.startsWith('http') || item.image_url.startsWith('https')) ? (
+                      <Image source={{ uri: item.image_url }} style={styles.menuItemImageLoaded} />
+                    ) : (
+                      <Text style={styles.menuItemEmoji}>🍽️</Text>
+                    )}
+                  </View>
+                  <View style={styles.menuItemDetails}>
+                    <Text style={styles.menuItemName}>{item.name}</Text>
+                    <Text style={styles.menuItemCategory}>{item.category}</Text>
+                    <View style={[
+                      styles.statusTag,
+                      item.available ? styles.availableTag : styles.unavailableTag,
                     ]}>
-                      {item.status}
-                    </Text>
+                      <Text style={[
+                        styles.statusTagText,
+                        item.available ? styles.availableTagText : styles.unavailableTagText,
+                      ]}>
+                        {item.available ? 'Available' : 'Unavailable'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.menuItemActions}>
+                    <Text style={styles.menuItemPrice}>${item.price.toFixed(2)}</Text>
+                    <View style={styles.actionIcons}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => setEditingId(item.id)}
+                      >
+                        <EditIcon active={false} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleDeleteClick(item.id)}
+                      >
+                        <TrashIcon />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-                <View style={styles.menuItemActions}>
-                  <Text style={styles.menuItemPrice}>{item.price}</Text>
-                  <View style={styles.actionIcons}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => setEditingId(item.id)}
-                    >
-                      <EditIcon active={false} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleDeleteClick(item.id)}
-                    >
-                      <TrashIcon />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            )}
-          </React.Fragment>
-        ))}
+              )}
+            </React.Fragment>
+          ))
+        )}
       </ScrollView>
 
       {/* Delete Confirmation Modal */}
@@ -535,6 +551,27 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#20B2AA',
     marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
   },
 });
 

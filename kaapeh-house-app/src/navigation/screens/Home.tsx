@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -32,7 +33,7 @@ interface MenuItemDisplay {
   price: number;
   rating: number;
   category: string;
-  image: any;
+  image_url: string;
   available: boolean;
 }
 
@@ -63,6 +64,18 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   // Load initial data
   useEffect(() => {
     loadInitialData();
+  }, []);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backAction = () => {
+      // Prevent going back to Auth screen
+      return true; // This prevents the default back action
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+    return () => backHandler.remove();
   }, []);
 
   // Load menu items when category changes
@@ -152,6 +165,21 @@ export default function HomeScreen({ session }: HomeScreenProps) {
     }
   };
 
+  // Helper function to validate if a string is a valid URL
+  const isValidImageUrl = (url: string | null | undefined): boolean => {
+    if (!url || url.trim() === '') return false;
+    
+    try {
+      // Check if it's a valid URL format
+      const urlObj = new URL(url);
+      // Check if it's http or https
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      // If URL parsing fails, it's not a valid URL
+      return false;
+    }
+  };
+
   // Convert MenuItem from database to MenuItemDisplay format for rendering
   const convertToMenuItemDisplay = (items: MenuItem[]): MenuItemDisplay[] => {
     return items.map(item => ({
@@ -161,7 +189,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
       price: item.price,
       rating: 4.8, // Placeholder rating (not sure how we can calculate this and store in DB)
       category: item.category,
-      image: require('../../assets/images/react-logo.png'), // Placeholder image
+      image_url: item.image_url || '', // Use actual image URL from database
       available: item.available, // Available or Sold Out
     }));
   };
@@ -170,7 +198,15 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   const renderMenuItemCard = (item: MenuItemDisplay) => (
     <View key={item.id} style={[styles.drinkCard, !item.available && styles.unavailableCard]}>
       <View style={styles.drinkImageContainer}>
-        <Image source={item.image} style={[styles.drinkImage, !item.available && styles.unavailableImage]} resizeMode="cover" />
+        <Image 
+          source={
+            isValidImageUrl(item.image_url)
+              ? { uri: item.image_url }
+              : require('../../assets/images/no-image-available.jpg')
+          } 
+          style={[styles.drinkImage, !item.available && styles.unavailableImage]} 
+          resizeMode="cover" 
+        />
         {!item.available && (
           <View style={styles.soldOutOverlay}>
             <Text style={styles.soldOutText}>SOLD OUT</Text>
@@ -188,6 +224,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
         <TouchableOpacity 
           style={[styles.addButton, !item.available && styles.disabledButton]} 
           disabled={!item.available}
+          onPress={() => (navigation as any).navigate('DrinkDetail', { item })}
         >
           <MaterialCommunityIcons 
             name={item.available ? "plus" : "close"} 
@@ -227,24 +264,26 @@ export default function HomeScreen({ session }: HomeScreenProps) {
         </View>
       </View>
 
-      {/* Coffee Banner - Positioned to overlap both sections */}
-      <View style={styles.promoBanner}>
-        <Image 
-          source={require('../../assets/images/coffee-banner.jpg')} 
-          style={styles.bannerImage}
-          resizeMode="cover"
-        />
-        <View style={styles.bannerOverlay}>
-          {/* can add text for icons here later */}
+      {/* Main Content */}
+      <View style={styles.content}>
+        {/* Coffee Banner - Positioned to overlap both sections */}
+        <View style={styles.promoBanner}>
+          <Image 
+            source={require('../../assets/images/coffee-banner.jpg')} 
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
+          <View style={styles.bannerOverlay}>
+            {/* can add text for icons here later */}
+          </View>
         </View>
-      </View>
 
-      {/* Static Categories Row */}
-      <View style={styles.categoriesSection}>
+        {/* Static Categories Row */}
+        <View style={styles.categoriesSection}>
         <View style={styles.categoriesWrapper}>
           {/* Left gradient fade */}
           <LinearGradient
-            colors={['#F5F1E8', 'rgba(245, 241, 232, 0)']}
+            colors={['#fffcf5', 'rgba(255, 252, 245, 0)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.leftGradient}
@@ -279,7 +318,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
           
           {/* Right gradient fade */}
           <LinearGradient
-            colors={['rgba(245, 241, 232, 0)', '#F5F1E8']}
+            colors={['rgba(255, 252, 245, 0)', '#fffcf5']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.rightGradient}
@@ -311,13 +350,17 @@ export default function HomeScreen({ session }: HomeScreenProps) {
         {/* Bottom spacing for navigation */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
+      </View>
 
       {/* Bottom Navigation Bar */}
       <BottomNavigationBar currentScreen="Home" />
 
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.floatingButton}>
-        <MaterialCommunityIcons name="star-outline" size={24} color="#FFFFFF" />
+      <TouchableOpacity 
+        style={styles.floatingButton}
+        onPress={() => navigation.navigate('ChatBot' as never)}
+      >
+        <MaterialCommunityIcons name="emoticon-happy-outline" size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -326,7 +369,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F1E8',
+    backgroundColor: '#2B2B2B',
   },
   header: {
     backgroundColor: '#2B2B2B',
@@ -379,12 +422,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    backgroundColor: '#fffcf5',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 32,
   },
   categoriesSection: {
-    backgroundColor: '#F5F1E8',
+    backgroundColor: '#fffcf5',
     paddingTop: 10,
     paddingBottom: 20,
+    paddingHorizontal: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
@@ -413,6 +460,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 20,
     paddingHorizontal: 24,
+    backgroundColor: '#fffcf5',
   },
   menuScrollContent: {
     paddingBottom: 20,
@@ -420,7 +468,7 @@ const styles = StyleSheet.create({
   promoBanner: {
     borderRadius: 20,
     marginHorizontal: 24,
-    marginTop: -40, // Negative margin to overlap with header
+    marginTop: -80, // Negative margin to overlap with header
     marginBottom: 20,
     position: 'relative',
     overflow: 'hidden',
