@@ -21,7 +21,7 @@ export default function BottomNavigationBar({ currentScreen = 'Home' }: BottomNa
       id: 'Favorites',
       icon: 'heart',
       iconOutline: 'heart-outline',
-      active: currentScreen === 'Favorites',
+      active: currentScreen === 'Favorites' || currentScreen === 'MyOrder',
     },
     {
       id: 'Shopping',
@@ -43,9 +43,9 @@ export default function BottomNavigationBar({ currentScreen = 'Home' }: BottomNa
     } else if (screenId === 'Account') {
       (navigation as any).navigate('Account');
     } else if (screenId === 'Shopping') {
-      // Navigate to OrderDetail with empty cart for now
-      // In a real app, this would show the current cart items
-      (navigation as any).navigate('OrderDetail', { cartItems: [] });
+      (navigation as any).navigate('OrderDetail');
+    } else if (screenId === 'Favorites') {
+      (navigation as any).navigate('MyOrder');
     }
     // Add more navigation cases as needed for other screens
   };

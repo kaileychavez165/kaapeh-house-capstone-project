@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import { AppState } from 'react-native';
 import { supabase, getRememberMe, clearSessionOnAppClose } from '../utils/supabase';
 import { Navigation } from './navigation';
+import { CartProvider } from './context/CartContext';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -95,10 +96,12 @@ export function App() {
 
   // Always use Navigation component, pass session and pending reset password as parameters
   return (
-    <Navigation 
-      session={session} 
-      pendingResetPassword={pendingResetPassword}
-      onClearPendingResetPassword={() => setPendingResetPassword(null)}
-    />
+    <CartProvider>
+      <Navigation 
+        session={session} 
+        pendingResetPassword={pendingResetPassword}
+        onClearPendingResetPassword={() => setPendingResetPassword(null)}
+      />
+    </CartProvider>
   );
 }

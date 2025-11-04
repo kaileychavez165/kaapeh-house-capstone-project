@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useCart, CartItem } from '../../context/CartContext';
+import BottomNavigationBar from '../../components/BottomNavigationBar';
 
-// Define the route params interface
+// Define the route params interface (optional, for backward compatibility)
 type RootStackParamList = {
   OrderDetail: {
-    cartItems: Array<{
+    cartItems?: Array<{
       id: string;
       name: string;
       description: string;
@@ -36,23 +38,37 @@ type OrderDetailRouteProp = RouteProp<RootStackParamList, 'OrderDetail'>;
 
 interface OrderDetailScreenProps {}
 
+// Helper function to create unique key for items with same ID but different size/temperature
+const getItemKey = (item: CartItem) => {
+  return `${item.id}-${item.size}-${item.temperature}`;
+};
+
 export default function OrderDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<OrderDetailRouteProp>();
-  const { cartItems } = route.params;
+  const { items: cartItemsFromContext, setQuantity, removeItem } = useCart();
+  // Use cart items from context, fallback to route params if provided
+  const cartItems = route.params?.cartItems || cartItemsFromContext;
   
   const [quantities, setQuantities] = useState<{[key: string]: number}>(
-    cartItems.reduce((acc, item) => ({ ...acc, [item.id]: item.quantity || 1 }), {})
+    cartItems.reduce((acc, item) => ({ ...acc, [getItemKey(item)]: item.quantity || 1 }), {})
   );
   const [selectedDeliveryTime, setSelectedDeliveryTime] = useState('5 minutes');
   const [showDeliveryDropdown, setShowDeliveryDropdown] = useState(false);
+
+  // Sync quantities when cartItems change
+  React.useEffect(() => {
+    const newQuantities = cartItems.reduce((acc, item) => ({ ...acc, [getItemKey(item)]: item.quantity || 1 }), {});
+    setQuantities(newQuantities);
+  }, [cartItems]);
 
   const deliveryTimes = ['5 minutes', '10 minutes', '15 minutes', '20 minutes'];
 
   // Calculate totals
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
-      return total + (item.price * quantities[item.id]);
+      const itemKey = getItemKey(item);
+      return total + (item.price * quantities[itemKey]);
     }, 0);
   };
 
@@ -60,32 +76,48 @@ export default function OrderDetailScreen() {
   const discountDeliveryFee = 1.0;
   const total = subtotal + discountDeliveryFee;
 
-  const updateQuantity = (itemId: string, change: number) => {
+  const updateQuantity = (item: CartItem, change: number) => {
+    const itemKey = getItemKey(item);
+    const currentQuantity = quantities[itemKey] || item.quantity || 1;
+    const newQuantity = currentQuantity + change;
+    
+    // If decreasing and quantity would be 0 or less, remove the item
+    if (change < 0 && currentQuantity <= 1) {
+      // Remove from cart context
+      removeItem(item.id, { size: item.size, temperature: item.temperature });
+      // Remove from local quantities state
+      setQuantities(prev => {
+        const updated = { ...prev };
+        delete updated[itemKey];
+        return updated;
+      });
+      return;
+    }
+    
+    // Otherwise, update the quantity (minimum 1)
+    const updatedQuantity = Math.max(1, newQuantity);
+    
     setQuantities(prev => ({
       ...prev,
-      [itemId]: Math.max(1, prev[itemId] + change)
+      [itemKey]: updatedQuantity
     }));
+    
+    // Update cart context
+    setQuantity(item.id, updatedQuantity, { size: item.size, temperature: item.temperature });
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F1E8" />
+      <StatusBar barStyle="light-content" backgroundColor="#2B2B2B" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#2B2B2B" />
-        </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>Order</Text>
-        
-        <View style={styles.headerSpacer} />
+        <Text style={styles.logoText}>Order Checkout</Text>
       </View>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      {/* Main Content */}
+      <View style={styles.content}>
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Pick Up Details Section */}
         <View style={styles.pickupSection}>
           <View style={styles.pickupMethodContainer}>
@@ -154,30 +186,33 @@ export default function OrderDetailScreen() {
         {/* Items Section */}
         <View style={styles.itemsSection}>
           {cartItems.length > 0 ? (
-            cartItems.map((item) => (
-              <View key={item.id} style={styles.itemCard}>
-                <Image source={item.image} style={styles.itemImage} resizeMode="cover" />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemDescription}>{item.temperature} • {item.size}</Text>
+            cartItems.map((item) => {
+              const itemKey = getItemKey(item);
+              return (
+                <View key={itemKey} style={styles.itemCard}>
+                  <Image source={item.image} style={styles.itemImage} resizeMode="cover" />
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemDescription}>{item.temperature} • {item.size}</Text>
+                  </View>
+                  <View style={styles.quantitySelector}>
+                    <TouchableOpacity 
+                      style={styles.quantityButton}
+                      onPress={() => updateQuantity(item, -1)}
+                    >
+                      <MaterialCommunityIcons name="minus" size={16} color="#666666" />
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{quantities[itemKey] || item.quantity || 1}</Text>
+                    <TouchableOpacity 
+                      style={styles.quantityButton}
+                      onPress={() => updateQuantity(item, 1)}
+                    >
+                      <MaterialCommunityIcons name="plus" size={16} color="#666666" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={styles.quantitySelector}>
-                  <TouchableOpacity 
-                    style={styles.quantityButton}
-                    onPress={() => updateQuantity(item.id, -1)}
-                  >
-                    <MaterialCommunityIcons name="minus" size={16} color="#666666" />
-                  </TouchableOpacity>
-                  <Text style={styles.quantityText}>{quantities[item.id]}</Text>
-                  <TouchableOpacity 
-                    style={styles.quantityButton}
-                    onPress={() => updateQuantity(item.id, 1)}
-                  >
-                    <MaterialCommunityIcons name="plus" size={16} color="#666666" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyCartContainer}>
               <MaterialCommunityIcons name="cart-outline" size={48} color="#999999" />
@@ -228,14 +263,18 @@ export default function OrderDetailScreen() {
             <MaterialCommunityIcons name="chevron-down" size={20} color="#666666" />
           </TouchableOpacity>
         </View>
-      </ScrollView>
 
-      {/* Order Button */}
-      <View style={styles.orderButtonContainer}>
-        <TouchableOpacity style={styles.orderButton}>
-          <Text style={styles.orderButtonText}>Order</Text>
-        </TouchableOpacity>
+        {/* Order Button */}
+        <View style={styles.orderButtonContainer}>
+          <TouchableOpacity style={styles.orderButton}>
+            <Text style={styles.orderButtonText}>Order</Text>
+          </TouchableOpacity>
+        </View>
+        </ScrollView>
       </View>
+
+      {/* Bottom Navigation Bar */}
+      <BottomNavigationBar currentScreen="Shopping" />
     </SafeAreaView>
   );
 }
@@ -243,32 +282,34 @@ export default function OrderDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F1E8',
+    backgroundColor: '#2B2B2B',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#F5F1E8',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingBottom: 24,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
+  logoText: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#2B2B2B',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
-  headerSpacer: {
-    width: 40,
+  content: {
+    flex: 1,
+    backgroundColor: '#F5F1E8',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 32,
+    paddingHorizontal: 24,
   },
   scrollContainer: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
   pickupSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   pickupMethodContainer: {
@@ -371,10 +412,8 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#E0E0E0',
-    marginHorizontal: 20,
   },
   itemsSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   itemCard: {
@@ -421,7 +460,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   rewardsSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   rewardsButton: {
@@ -440,7 +478,6 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   paymentSummarySection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   paymentSummaryTitle: {
@@ -475,7 +512,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   paymentMethodSection: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
   },
   paymentMethodButton: {
@@ -502,7 +538,6 @@ const styles = StyleSheet.create({
     color: '#2B2B2B',
   },
   orderButtonContainer: {
-    paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },

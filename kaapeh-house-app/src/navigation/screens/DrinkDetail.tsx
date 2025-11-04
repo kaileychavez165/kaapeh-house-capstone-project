@@ -9,9 +9,11 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useCart } from '../../context/CartContext';
 
 // Define the route params interface
 type RootStackParamList = {
@@ -37,11 +39,13 @@ export default function DrinkDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<DrinkDetailRouteProp>();
   const { item } = route.params;
+  const { addItem } = useCart();
   
   const [selectedSize, setSelectedSize] = useState('M');
   const [selectedTemperature, setSelectedTemperature] = useState('Hot');
   const [isFavorited, setIsFavorited] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const isDrink = /coffee|tea|drink/i.test(item.category || '');
 
   // Calculate price based on size
   const getPrice = () => {
@@ -101,21 +105,6 @@ export default function DrinkDetailScreen() {
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{item.name}</Text>
             
-            <View style={styles.temperatureContainer}>
-              <Text style={styles.temperatureText}>Ice/Hot</Text>
-              <View style={styles.iconsContainer}>
-                <View style={styles.iconWrapper}>
-                  <MaterialCommunityIcons name="scooter" size={16} color="#acc18a" />
-                </View>
-                <View style={styles.iconWrapper}>
-                  <MaterialCommunityIcons name="coffee" size={16} color="#acc18a" />
-                </View>
-                <View style={styles.iconWrapper}>
-                  <MaterialCommunityIcons name="cup" size={16} color="#acc18a" />
-                </View>
-              </View>
-            </View>
-
             {/* Rating */}
             <View style={styles.ratingContainer}>
               <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
@@ -142,29 +131,31 @@ export default function DrinkDetailScreen() {
             )}
         </View>
 
-        {/* Temperature Selection */}
-        <View style={styles.temperatureSelectionContainer}>
-          <Text style={styles.sectionTitle}>Temperature</Text>
-          <View style={styles.temperatureButtonsContainer}>
-            {['Iced', 'Hot'].map((temperature) => (
-              <TouchableOpacity
-                key={temperature}
-                style={[
-                  styles.temperatureButton,
-                  selectedTemperature === temperature && styles.selectedTemperatureButton
-                ]}
-                onPress={() => setSelectedTemperature(temperature)}
-              >
-                <Text style={[
-                  styles.temperatureButtonText,
-                  selectedTemperature === temperature && styles.selectedTemperatureButtonText
-                ]}>
-                  {temperature}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {/* Temperature Selection (only for drinks) */}
+        {isDrink && (
+          <View style={styles.temperatureSelectionContainer}>
+            <Text style={styles.sectionTitle}>Temperature</Text>
+            <View style={styles.temperatureButtonsContainer}>
+              {['Iced', 'Hot'].map((temperature) => (
+                <TouchableOpacity
+                  key={temperature}
+                  style={[
+                    styles.temperatureButton,
+                    selectedTemperature === temperature && styles.selectedTemperatureButton
+                  ]}
+                  onPress={() => setSelectedTemperature(temperature)}
+                >
+                  <Text style={[
+                    styles.temperatureButtonText,
+                    selectedTemperature === temperature && styles.selectedTemperatureButtonText
+                  ]}>
+                    {temperature}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Size Selection */}
         <View style={styles.sizeContainer}>
@@ -202,15 +193,17 @@ export default function DrinkDetailScreen() {
             style={[styles.buyButton, !item.available && styles.disabledBuyButton]}
             disabled={!item.available}
             onPress={() => {
-              const cartItem = {
+              addItem({
                 ...item,
                 size: selectedSize,
-                temperature: selectedTemperature,
+                temperature: isDrink ? selectedTemperature : 'Regular',
                 quantity: 1
-              };
-              (navigation as any).navigate('OrderDetail', { 
-                cartItems: [cartItem] 
-              });
+              } as any);
+              Alert.alert(
+                'Success',
+                'Item has been added to cart',
+                [{ text: 'OK', style: 'default' }]
+              );
             }}
           >
             <Text style={styles.buyButtonText}>
