@@ -10,13 +10,13 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-} from 'react-native';
+} from 'react-native'; 
 import * as ImagePicker from 'expo-image-picker';
 import { uploadMenuImage } from '../../services/menuService';
 
 export interface MenuItem {
   id: number;
-  name: string;
+  name: string; 
   category: string;
   price: string;
   status: 'Available' | 'Unavailable';
