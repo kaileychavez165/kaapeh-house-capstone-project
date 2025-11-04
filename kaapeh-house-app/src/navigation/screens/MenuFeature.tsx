@@ -8,16 +8,20 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadImageToStorage } from '../../services/menuService';
 
+// Display interface for Menu screen (extends DB MenuItem with display properties)
 export interface MenuItem {
-  id: number;
+  id: string;
   name: string;
   category: string;
-  price: string;
-  status: 'Available' | 'Unavailable';
-  image: string;
+  price: number;
+  available: boolean;
+  image_url: string;
+  description?: string;
 }
 
 interface DeleteModalProps {
@@ -73,10 +77,11 @@ interface EditModeProps {
 
 export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) => {
   const [editedName, setEditedName] = React.useState(item.name);
-  const [editedPrice, setEditedPrice] = React.useState(item.price);
-  const [editedStatus, setEditedStatus] = React.useState(item.status);
-  const [editedImage, setEditedImage] = React.useState(item.image);
+  const [editedPrice, setEditedPrice] = React.useState(item.price.toString());
+  const [editedStatus, setEditedStatus] = React.useState(item.available ? 'Available' : 'Unavailable');
   const [selectedImageUri, setSelectedImageUri] = React.useState<string | null>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -98,14 +103,55 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
     }
   };
 
-  const handleSave = () => {
-    onSave({
-      ...item,
-      name: editedName,
-      price: editedPrice,
-      status: editedStatus,
-      image: selectedImageUri || editedImage,
-    });
+  const handleSave = async () => {
+    // Validate inputs
+    if (!editedName.trim()) {
+      Alert.alert('Validation Error', 'Item name is required');
+      return;
+    }
+
+    const priceValue = parseFloat(editedPrice.replace('$', '').trim());
+    if (isNaN(priceValue) || priceValue <= 0) {
+      Alert.alert('Validation Error', 'Please enter a valid price');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      let imageUrl = item.image_url;
+
+      // Upload image if a new one was selected
+      if (selectedImageUri) {
+        setIsUploading(true);
+        try {
+          // Generate a unique filename
+          const fileName = `${item.id}-${Date.now()}.jpg`;
+          imageUrl = await uploadImageToStorage(selectedImageUri, fileName);
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
+          setIsUploading(false);
+          setIsSaving(false);
+          return;
+        }
+        setIsUploading(false);
+      }
+
+      // Call onSave with updated item
+      onSave({
+        ...item,
+        name: editedName.trim(),
+        price: priceValue,
+        available: editedStatus === 'Available',
+        image_url: imageUrl,
+      });
+    } catch (error) {
+      console.error('Error saving item:', error);
+      Alert.alert('Save Error', 'Failed to save item. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -120,25 +166,30 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         style={styles.editInput}
         value={editedPrice}
         onChangeText={setEditedPrice}
-        placeholder="Price"
-        keyboardType="default"
+        placeholder="Price (e.g., 5.50)"
+        keyboardType="decimal-pad"
       />
 
       {/* Image Picker */}
       <View style={styles.imagePickerContainer}>
-        {(selectedImageUri || editedImage) && (
+        {(selectedImageUri || item.image_url) && (
           <Image
-            source={{ uri: selectedImageUri || editedImage }}
+            source={{ uri: selectedImageUri || item.image_url }}
             style={styles.previewImage}
           />
         )}
         <TouchableOpacity
-          style={styles.imagePickerButton}
+          style={[styles.imagePickerButton, isUploading && styles.disabledButton]}
           onPress={handlePickImage}
+          disabled={isUploading}
         >
-          <Text style={styles.imagePickerButtonText}>
-            {selectedImageUri || editedImage ? 'Change Image' : 'Select Image'}
-          </Text>
+          {isUploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.imagePickerButtonText}>
+              {selectedImageUri || item.image_url ? 'Change Image' : 'Select Image'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
       
@@ -181,14 +232,20 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
       {/* Action Buttons */}
       <View style={styles.editActions}>
         <TouchableOpacity
-          style={styles.saveButton}
+          style={[styles.saveButton, (isSaving || isUploading) && styles.disabledButton]}
           onPress={handleSave}
+          disabled={isSaving || isUploading}
         >
-          <Text style={styles.saveButtonText}>Save</Text>
+          {isSaving || isUploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save</Text>
+          )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={[styles.cancelButton, (isSaving || isUploading) && styles.disabledButton]}
           onPress={onCancel}
+          disabled={isSaving || isUploading}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
@@ -345,6 +402,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
 
