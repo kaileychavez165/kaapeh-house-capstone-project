@@ -282,6 +282,7 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
   const [status, setStatus] = React.useState<'Available' | 'Unavailable'>('Available');
   const [selectedImageUri, setSelectedImageUri] = React.useState<string | null>(null);
   const [uploading, setUploading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   // Filter out "All Items" from categories for selection
   const selectableCategories = categories.filter(cat => cat !== 'All Items');
@@ -320,18 +321,31 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       return;
     }
 
+    const priceValue = parseFloat(price.replace('$', '').trim());
+    if (isNaN(priceValue) || priceValue <= 0) {
+      Alert.alert('Validation Error', 'Please enter a valid price.');
+      return;
+    }
+
+    setIsSaving(true);
+
     try {
-      setUploading(true);
-      let finalImageUrl = '☕';
+      let finalImageUrl = '';
 
       // Upload image if one was selected (and it's a local file)
       if (selectedImageUri && (selectedImageUri.startsWith('file://') || selectedImageUri.startsWith('ph://') || selectedImageUri.startsWith('assets-library://'))) {
+        setUploading(true);
         try {
-          finalImageUrl = await uploadMenuImage(selectedImageUri, name.trim());
+          const fileName = `menu-item-${Date.now()}.jpg`;
+          finalImageUrl = await uploadImageToStorage(selectedImageUri, fileName);
         } catch (error) {
-          Alert.alert('Upload Error', 'Failed to upload image. Using default emoji.');
+          Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
           console.error('Image upload error:', error);
+          setIsSaving(false);
+          setUploading(false);
+          return;
         }
+        setUploading(false);
       } else if (selectedImageUri) {
         // If it's already a URL, use it directly
         finalImageUrl = selectedImageUri;
@@ -341,9 +355,9 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
         name: name.trim(),
         description: description.trim(),
         category,
-        price: price.trim(),
-        status,
-        image: finalImageUrl,
+        price: priceValue,
+        available: status === 'Available',
+        image_url: finalImageUrl,
       });
       
       // Reset form
@@ -357,6 +371,7 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       Alert.alert('Error', 'Failed to save item. Please try again.');
       console.error('Save error:', error);
     } finally {
+      setIsSaving(false);
       setUploading(false);
     }
   };
@@ -481,20 +496,20 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       {/* Action Buttons */}
       <View style={styles.editActions}>
         <TouchableOpacity
-          style={[styles.saveButton, uploading && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (uploading || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={uploading}
+          disabled={uploading || isSaving}
         >
-          {uploading ? (
+          {(uploading || isSaving) ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.saveButtonText}>Add Item</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={[styles.cancelButton, (uploading || isSaving) && styles.disabledButton]}
           onPress={onCancel}
-          disabled={isSaving || isUploading}
+          disabled={uploading || isSaving}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>

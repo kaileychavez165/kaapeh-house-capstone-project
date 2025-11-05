@@ -1,5 +1,5 @@
 import { supabase } from '../../utils/supabase';
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface MenuItem {
     id: string;
@@ -104,6 +104,7 @@ export const updateMenuItem = async (
     id: string,
     updates: {
         name?: string;
+        description?: string;
         price?: number;
         image_url?: string;
         available?: boolean;
@@ -132,6 +133,40 @@ export const updateMenuItem = async (
     }
 };
 
+// Create a new menu item
+export const createMenuItem = async (
+    item: {
+        name: string;
+        description?: string;
+        price: number;
+        category: string;
+        image_url: string;
+        available: boolean;
+    }
+): Promise<MenuItem> => {
+    try {
+        const { data, error } = await supabase
+            .from('menu_items')
+            .insert({
+                ...item,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating menu item:', error);
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error in createMenuItem:', error);
+        throw error;
+    }
+};
+
 // Delete a menu item
 export const deleteMenuItem = async (id: string): Promise<void> => {
     try {
@@ -156,29 +191,50 @@ export const uploadImageToStorage = async (
     fileName: string
 ): Promise<string> => {
     try {
-        // Create a File instance from the image URI using the new File API
-        const file = new File(imageUri);
-        
-        // Read file as bytes (returns Uint8Array)
-        const bytes = await file.bytes();
-        
-        // Convert Uint8Array to ArrayBuffer
-        const arrayBuffer = bytes.buffer;
+        let fileBody: Uint8Array;
+        const fileExt = fileName.split('.').pop()?.split('?')[0] || 'jpg';
+        const contentType = `image/${fileExt === 'jpg' || fileExt === 'jpeg' ? 'jpeg' : fileExt}`;
+        const filePath = `menu-items/${fileName}`;
+
+        // Check if it's a local file URI (React Native)
+        if (imageUri.startsWith('file://') || imageUri.startsWith('ph://') || imageUri.startsWith('assets-library://')) {
+            // Read file as base64 using legacy FileSystem API
+            const base64 = await FileSystem.readAsStringAsync(imageUri, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+            
+            // Convert base64 string to Uint8Array
+            // React Native has atob available globally
+            const binaryString = typeof atob !== 'undefined' ? atob(base64) : Buffer.from(base64, 'base64').toString('binary');
+            const rawLength = binaryString.length;
+            fileBody = new Uint8Array(rawLength);
+            for (let i = 0; i < rawLength; i++) {
+                fileBody[i] = binaryString.charCodeAt(i);
+            }
+        } else {
+            // It's already a URL, fetch it
+            const response = await fetch(imageUri);
+            const arrayBuffer = await response.arrayBuffer();
+            fileBody = new Uint8Array(arrayBuffer);
+        }
 
         // Upload to Supabase storage
-        // Supabase accepts ArrayBuffer, Blob, or File
-        const fileExt = fileName.split('.').pop() || 'jpg';
-        const filePath = `${fileName}`;
-
         const { data, error } = await supabase.storage
             .from('menu-images')
-            .upload(filePath, arrayBuffer, {
-                contentType: `image/${fileExt}`,
+            .upload(filePath, fileBody, {
+                contentType: contentType,
                 upsert: true, // Replace file if it exists
             });
 
         if (error) {
             console.error('Error uploading image:', error);
+            // If bucket doesn't exist or permission issue, return original URI as fallback
+            if (error.message?.includes('Bucket not found') || 
+                error.message?.includes('permission') || 
+                error.message?.includes('not found')) {
+                console.warn('Storage bucket not configured. Using original URI.');
+                return imageUri;
+            }
             throw error;
         }
 
@@ -190,6 +246,8 @@ export const uploadImageToStorage = async (
         return urlData.publicUrl;
     } catch (error) {
         console.error('Error in uploadImageToStorage:', error);
-        throw error;
+        // Return original URI as fallback if upload fails
+        console.warn('Image upload failed. Using original URI as fallback.');
+        return imageUri;
     }
 };

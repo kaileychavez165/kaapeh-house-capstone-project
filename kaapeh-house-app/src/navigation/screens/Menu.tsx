@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
-import { EditMode, DeleteConfirmationModal, MenuItem } from './MenuFeature';
+import { EditMode, DeleteConfirmationModal, AddItemMode, MenuItem } from './MenuFeature';
 import { 
   fetchMenuItems, 
   fetchMenuItemsByCategory, 
   fetchMenuCategories,
   updateMenuItem,
   deleteMenuItem,
+  createMenuItem,
   MenuItem as DbMenuItem 
 } from '../../services/menuService';
 
@@ -123,6 +124,7 @@ const Menu = () => {
       // Update in database
       await updateMenuItem(updatedItem.id, {
         name: updatedItem.name,
+        description: updatedItem.description,
         price: updatedItem.price,
         image_url: updatedItem.image_url,
         available: updatedItem.available,
@@ -140,14 +142,27 @@ const Menu = () => {
     }
   };
 
-  const handleAddItem = (newItem: Omit<MenuItem, 'id'>) => {
-    const maxId = Math.max(...menuItems.map(item => item.id), 0);
-    const newMenuItem: MenuItem = {
-      ...newItem,
-      id: maxId + 1,
-    };
-    setMenuItems(items => [newMenuItem, ...items]);
-    setAddingItem(false);
+  const handleAddItem = async (newItem: Omit<MenuItem, 'id'>) => {
+    try {
+      // Create item in database
+      const createdItem = await createMenuItem({
+        name: newItem.name,
+        description: newItem.description,
+        price: newItem.price,
+        category: newItem.category,
+        image_url: newItem.image_url,
+        available: newItem.available,
+      });
+
+      // Convert to display format and add to local state
+      const displayItem = convertDbToDisplay(createdItem);
+      setMenuItems(items => [displayItem, ...items]);
+      setAddingItem(false);
+      Alert.alert('Success', 'Menu item added successfully');
+    } catch (error) {
+      console.error('Error adding menu item:', error);
+      Alert.alert('Error', 'Failed to add menu item. Please try again.');
+    }
   };
 
   const handleDeleteClick = (id: string) => {
