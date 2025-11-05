@@ -18,12 +18,20 @@ export interface MenuCategory {
 }
 
 // Fetch all menu items (including unavailable ones)
-export const fetchMenuItems = async (): Promise<MenuItem[]> => {
+// excludeAdminCategories: if true, excludes admin-only categories like 'Extras'
+export const fetchMenuItems = async (excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
-        const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .order('created_at', { ascending: false });
+        let query = supabase
+            .from('menu_items')
+            .select('*');
+
+        // Exclude admin-only categories if requested
+        if (excludeAdminCategories) {
+            query = query.neq('category', 'Extras');
+        }
+
+        const { data, error } = await query
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error('Error fetching menu items:', error);
@@ -38,8 +46,14 @@ export const fetchMenuItems = async (): Promise<MenuItem[]> => {
 };
 
 // Fetch menu items by category for filtering
-export const fetchMenuItemsByCategory = async (category: string): Promise<MenuItem[]> => {
+// excludeAdminCategories: if true, prevents fetching admin-only categories like 'Extras'
+export const fetchMenuItemsByCategory = async (category: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
+        // If excluding admin categories and category is 'Extras', return empty array
+        if (excludeAdminCategories && category === 'Extras') {
+            return [];
+        }
+
         const { data, error } = await supabase
             .from('menu_items')
             .select('*')
@@ -59,10 +73,11 @@ export const fetchMenuItemsByCategory = async (category: string): Promise<MenuIt
 };
 
 // Fetch all available categories
-export const fetchMenuCategories = async (): Promise<string[]> => {
+// forAdmin: if true, includes admin-only categories like 'Extras'
+export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<string[]> => {
     try {
-        // Return all categories, regardless of whether they have items
-        const allCategories = [
+        // Base categories visible to all users
+        const baseCategories = [
             'All Items',
             'Coffee',
             'Tea & Other Drinks', 
@@ -71,7 +86,12 @@ export const fetchMenuCategories = async (): Promise<string[]> => {
             'Seasonal Items'
         ];
         
-        return allCategories;
+        // Add admin-only categories if requested
+        if (forAdmin) {
+            return [...baseCategories, 'Extras'];
+        }
+        
+        return baseCategories;
     } catch (error) {
         console.error('Error in fetchMenuCategories:', error);
         throw error;
@@ -79,23 +99,30 @@ export const fetchMenuCategories = async (): Promise<string[]> => {
 };
 
 // Search menu items (including unavailable ones)
-export const searchMenuItems = async (query: string): Promise<MenuItem[]> => {
+// excludeAdminCategories: if true, excludes admin-only categories like 'Extras'
+export const searchMenuItems = async (query: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
-    const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
-        .order('created_at', { ascending: false });
+        let searchQuery = supabase
+            .from('menu_items')
+            .select('*')
+            .or(`name.ilike.%${query}%,description.ilike.%${query}%`);
 
-    if (error) {
-        console.error('Error searching menu items:', error);
-        throw error;
-    }
+        // Exclude admin-only categories if requested
+        if (excludeAdminCategories) {
+            searchQuery = searchQuery.neq('category', 'Extras');
+        }
 
-    return data || [];
+        const { data, error } = await searchQuery.order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error searching menu items:', error);
+            throw error;
+        }
+
+        return data || [];
     } catch (error) {
-    console.error('Error in searchMenuItems:', error);
-    throw error;
+        console.error('Error in searchMenuItems:', error);
+        throw error;
     }
 };
 
@@ -104,6 +131,7 @@ export const updateMenuItem = async (
     id: string,
     updates: {
         name?: string;
+        description?: string;
         price?: number;
         image_url?: string;
         available?: boolean;
@@ -146,6 +174,45 @@ export const deleteMenuItem = async (id: string): Promise<void> => {
         }
     } catch (error) {
         console.error('Error in deleteMenuItem:', error);
+        throw error;
+    }
+};
+
+// Add a new menu item
+export const addMenuItem = async (
+    item: {
+        name: string;
+        description?: string;
+        price: number;
+        category: string;
+        image_url: string;
+        available: boolean;
+    }
+): Promise<MenuItem> => {
+    try {
+        const { data, error } = await supabase
+            .from('menu_items')
+            .insert({
+                name: item.name,
+                description: item.description || '',
+                price: item.price,
+                category: item.category,
+                image_url: item.image_url,
+                available: item.available,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error adding menu item:', error);
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error in addMenuItem:', error);
         throw error;
     }
 };

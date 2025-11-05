@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
-import { EditMode, DeleteConfirmationModal, MenuItem } from './MenuFeature';
+import { EditMode, DeleteConfirmationModal, MenuItem, AddItemMode } from './MenuFeature';
 import { 
   fetchMenuItems, 
   fetchMenuItemsByCategory, 
   fetchMenuCategories,
   updateMenuItem,
   deleteMenuItem,
+  addMenuItem,
   MenuItem as DbMenuItem 
 } from '../../services/menuService';
 
@@ -90,7 +91,8 @@ const Menu = () => {
 
   const loadCategories = async () => {
     try {
-      const cats = await fetchMenuCategories();
+      // Fetch categories with admin-only categories included
+      const cats = await fetchMenuCategories(true);
       setCategories(cats);
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -123,15 +125,14 @@ const Menu = () => {
       // Update in database
       await updateMenuItem(updatedItem.id, {
         name: updatedItem.name,
+        description: updatedItem.description,
         price: updatedItem.price,
         image_url: updatedItem.image_url,
         available: updatedItem.available,
       });
 
-      // Update local state
-      setMenuItems(items => items.map(item => 
-        item.id === updatedItem.id ? updatedItem : item
-      ));
+      // Reload menu items to get the latest from database
+      await loadMenuItems();
       setEditingId(null);
       Alert.alert('Success', 'Menu item updated successfully');
     } catch (error) {
@@ -140,14 +141,26 @@ const Menu = () => {
     }
   };
 
-  const handleAddItem = (newItem: Omit<MenuItem, 'id'>) => {
-    const maxId = Math.max(...menuItems.map(item => item.id), 0);
-    const newMenuItem: MenuItem = {
-      ...newItem,
-      id: maxId + 1,
-    };
-    setMenuItems(items => [newMenuItem, ...items]);
-    setAddingItem(false);
+  const handleAddItem = async (newItem: Omit<MenuItem, 'id'>) => {
+    try {
+      // Save to database
+      const dbItem = await addMenuItem({
+        name: newItem.name,
+        description: newItem.description,
+        price: newItem.price,
+        category: newItem.category,
+        image_url: newItem.image_url,
+        available: newItem.available,
+      });
+
+      // Reload menu items to get the latest from database
+      await loadMenuItems();
+      setAddingItem(false);
+      Alert.alert('Success', 'Menu item added successfully');
+    } catch (error) {
+      console.error('Error adding menu item:', error);
+      Alert.alert('Error', 'Failed to add menu item. Please try again.');
+    }
   };
 
   const handleDeleteClick = (id: string) => {
