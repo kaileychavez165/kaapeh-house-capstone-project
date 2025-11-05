@@ -260,7 +260,6 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         <TouchableOpacity
           style={[styles.cancelButton, (isSaving || isUploading) && styles.disabledButton]}
           onPress={onCancel}
-          disabled={uploading}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
