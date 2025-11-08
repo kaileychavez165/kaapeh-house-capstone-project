@@ -23,6 +23,11 @@ export interface MenuItem {
   available: boolean;
   image_url: string;
   description?: string;
+  served_hot?: boolean;
+  served_cold?: boolean;
+  allow_customizations?: string[];
+  sizes?: Record<string, number>; // size -> price mapping
+  sub_category?: 'Milk' | 'Syrup' | 'Flavor' | 'Extras';
 }
 
 interface DeleteModalProps {
@@ -288,9 +293,56 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
   const [selectedImageUri, setSelectedImageUri] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  
+  // New optional fields
+  const [servedHot, setServedHot] = React.useState(false);
+  const [servedCold, setServedCold] = React.useState(false);
+  const [allowCustomizations, setAllowCustomizations] = React.useState<string[]>([]);
+  const [sizes, setSizes] = React.useState<Record<string, string>>({}); // size -> price string
+  const [subCategory, setSubCategory] = React.useState<'Milk' | 'Syrup' | 'Flavor' | 'Extras' | ''>('');
 
   // Filter out "All Items" from categories for selection
   const selectableCategories = categories.filter(cat => cat !== 'All Items');
+  
+  // Categories that should show serving options, sizes, and customizations
+  const drinkCategories = ['Coffee', 'Tea & Other Drinks', 'Seasonal Items'];
+  const showDrinkOptions = category && drinkCategories.includes(category);
+  
+  // Available options
+  const customizationOptions = ['Milk', 'Syrup', 'Flavor', 'Extras'];
+  const sizeOptions = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
+  const subCategoryOptions: ('Milk' | 'Syrup' | 'Flavor' | 'Extras')[] = ['Milk', 'Syrup', 'Flavor', 'Extras'];
+
+  // Helper functions for multiselect
+  const toggleCustomization = (option: string) => {
+    setAllowCustomizations(prev => 
+      prev.includes(option) 
+        ? prev.filter(item => item !== option)
+        : [...prev, option]
+    );
+  };
+
+  const toggleSize = (option: string) => {
+    setSizes(prev => {
+      // Check if size exists (even if price is empty string)
+      if (prev.hasOwnProperty(option)) {
+        // Remove size if it exists
+        const newSizes = { ...prev };
+        delete newSizes[option];
+        return newSizes;
+      } else {
+        // Add size with empty price
+        return { ...prev, [option]: '' };
+      }
+    });
+  };
+
+  const updateSizePrice = (size: string, priceStr: string) => {
+    setSizes(prev => ({
+      ...prev,
+      [size]: priceStr,
+    }));
+  };
 
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -334,6 +386,66 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       return;
     }
 
+    // Validate drink category requirements
+    if (showDrinkOptions) {
+      // Must have at least one serving option selected
+      if (!servedHot && !servedCold) {
+        Alert.alert('Validation Error', 'Please select at least one serving option (Served Hot or Served Cold)');
+        return;
+      }
+
+      // Must have at least one size selected
+      const selectedSizes = Object.keys(sizes);
+      if (selectedSizes.length === 0) {
+        Alert.alert('Validation Error', 'Please select at least one available size');
+        return;
+      }
+
+      // Validate that all selected sizes have prices
+      for (const size of selectedSizes) {
+        const sizePriceStr = sizes[size]?.trim() || '';
+        const sizePrice = parseFloat(sizePriceStr.replace('$', '').trim());
+        if (!sizePriceStr || isNaN(sizePrice) || sizePrice <= 0) {
+          Alert.alert('Validation Error', `Please enter a valid price for ${size}`);
+          return;
+        }
+      }
+
+      // Validate that the smallest size price equals the base price
+      if (selectedSizes.length > 0) {
+        const sizeOrder = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
+        // Find the smallest size that was selected
+        let smallestSize: string | null = null;
+        for (const size of sizeOrder) {
+          if (selectedSizes.includes(size)) {
+            smallestSize = size;
+            break;
+          }
+        }
+
+        if (smallestSize) {
+          const smallestSizePriceStr = sizes[smallestSize]?.trim() || '';
+          const smallestSizePrice = parseFloat(smallestSizePriceStr.replace('$', '').trim());
+          if (Math.abs(smallestSizePrice - priceValue) > 0.01) { // Allow small floating point differences
+            Alert.alert('Validation Error', `The price for ${smallestSize} (${smallestSizePrice.toFixed(2)}) must equal the base price (${priceValue.toFixed(2)})`);
+            return;
+          }
+        }
+      }
+
+      // Must have at least one customization selected
+      if (allowCustomizations.length === 0) {
+        Alert.alert('Validation Error', 'Please select at least one allowed customization');
+        return;
+      }
+    }
+
+    // Validate Customizations category requirement
+    if (isCustomizationsCategory && !subCategory) {
+      Alert.alert('Validation Error', 'Please select a sub category for Customizations items');
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -356,6 +468,19 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
         setIsUploading(false);
       }
 
+      // Convert sizes object to size-price pairs (size -> number)
+      let sizesObject: Record<string, number> | undefined = undefined;
+      if (showDrinkOptions && Object.keys(sizes).length > 0) {
+        sizesObject = {};
+        for (const size of Object.keys(sizes)) {
+          const priceStr = sizes[size]?.trim() || '';
+          const sizePrice = parseFloat(priceStr.replace('$', '').trim());
+          if (!isNaN(sizePrice) && sizePrice > 0) {
+            sizesObject[size] = sizePrice;
+          }
+        }
+      }
+
       // Call onSave with new item data
       onSave({
         name: name.trim(),
@@ -364,6 +489,13 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
         price: priceValue,
         available: status === 'Available',
         image_url: imageUrl,
+        // For drink categories, these are required and validated above
+        served_hot: showDrinkOptions ? servedHot : undefined,
+        served_cold: showDrinkOptions ? servedCold : undefined,
+        allow_customizations: showDrinkOptions && allowCustomizations.length > 0 ? allowCustomizations : undefined,
+        sizes: sizesObject,
+        // For Customizations category, sub_category is required and validated above
+        sub_category: isCustomizationsCategory && subCategory ? subCategory : undefined,
       });
       
       // Reset form
@@ -373,6 +505,11 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
       setCategory('');
       setStatus('Available');
       setSelectedImageUri(null);
+      setServedHot(false);
+      setServedCold(false);
+      setAllowCustomizations([]);
+      setSizes({});
+      setSubCategory('');
     } catch (error) {
       console.error('Error saving item:', error);
       Alert.alert('Save Error', 'Failed to save item. Please try again.');
@@ -429,7 +566,20 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
                 styles.categoryOption,
                 category === cat && styles.categoryOptionSelected,
               ]}
-              onPress={() => setCategory(cat)}
+              onPress={() => {
+                setCategory(cat);
+                // Reset sub_category if category is not Customizations
+                if (cat !== 'Customizations') {
+                  setSubCategory('');
+                }
+                // Reset drink-specific fields if switching to non-drink category
+                if (!drinkCategories.includes(cat)) {
+                  setServedHot(false);
+                  setServedCold(false);
+                  setAllowCustomizations([]);
+                  setSizes({});
+                }
+              }}
             >
               <Text
                 style={[
@@ -443,6 +593,159 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
           ))}
         </ScrollView>
       </View>
+
+      {/* Sub Category Selector (only for Customizations category) */}
+      {category === 'Customizations' && (
+        <View style={styles.categorySelectorContainer}>
+          <Text style={styles.categorySelectorLabel}>Sub Category</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.categorySelectorScroll}
+            contentContainerStyle={styles.categorySelectorContent}
+          >
+            {subCategoryOptions.map((subCat) => (
+              <TouchableOpacity
+                key={subCat}
+                style={[
+                  styles.categoryOption,
+                  subCategory === subCat && styles.categoryOptionSelected,
+                ]}
+                onPress={() => setSubCategory(subCat)}
+              >
+                <Text
+                  style={[
+                    styles.categoryOptionText,
+                    subCategory === subCat && styles.categoryOptionTextSelected,
+                  ]}
+                >
+                  {subCat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Served Hot/Cold Toggles - Only for drink categories */}
+      {showDrinkOptions && (
+        <View style={styles.toggleContainer}>
+          <Text style={styles.toggleLabel}>Serving Options</Text>
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                servedHot && styles.toggleButtonActive,
+              ]}
+              onPress={() => setServedHot(!servedHot)}
+            >
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  servedHot && styles.toggleButtonTextActive,
+                ]}
+              >
+                Served Hot
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                servedCold && styles.toggleButtonActive,
+              ]}
+              onPress={() => setServedCold(!servedCold)}
+            >
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  servedCold && styles.toggleButtonTextActive,
+                ]}
+              >
+                Served Cold
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Sizes Multiselect with Price Inputs - Only for drink categories */}
+      {showDrinkOptions && (
+        <View style={styles.sizesContainer}>
+          <Text style={styles.multiselectLabel}>Available Sizes & Prices</Text>
+          <View style={styles.sizesGrid}>
+            {sizeOptions.map((size) => {
+              const isSelected = sizes[size] !== undefined;
+              return (
+                <View key={size} style={styles.sizePriceRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.multiselectOption,
+                      isSelected && styles.multiselectOptionSelected,
+                    ]}
+                    onPress={() => toggleSize(size)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.multiselectOptionText,
+                        isSelected && styles.multiselectOptionTextSelected,
+                      ]}
+                    >
+                      {size} {isSelected && '✓'}
+                    </Text>
+                  </TouchableOpacity>
+                  {isSelected && (
+                    <TextInput
+                      style={styles.sizePriceInput}
+                      value={sizes[size] || ''}
+                      onChangeText={(text) => updateSizePrice(size, text)}
+                      placeholder="Price"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="decimal-pad"
+                      onFocus={() => {
+                        // Prevent accidental deselection when focusing input
+                      }}
+                    />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Allow Customizations Multiselect - Only for drink categories */}
+      {showDrinkOptions && (
+        <View style={styles.multiselectContainer}>
+          <Text style={styles.multiselectLabel}>Allowed Customizations</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.multiselectScroll}
+            contentContainerStyle={styles.multiselectContent}
+          >
+            {customizationOptions.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.multiselectOption,
+                  allowCustomizations.includes(option) && styles.multiselectOptionSelected,
+                ]}
+                onPress={() => toggleCustomization(option)}
+              >
+                <Text
+                  style={[
+                    styles.multiselectOptionText,
+                    allowCustomizations.includes(option) && styles.multiselectOptionTextSelected,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Image Picker */}
       <View style={styles.imagePickerContainer}>
@@ -731,6 +1034,115 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  toggleContainer: {
+    marginBottom: 12,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+  },
+  toggleButtonActive: {
+    backgroundColor: '#20B2AA',
+    borderColor: '#20B2AA',
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  toggleButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  multiselectContainer: {
+    marginBottom: 12,
+  },
+  multiselectLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  multiselectScroll: {
+    maxHeight: 50,
+  },
+  multiselectContent: {
+    paddingRight: 10,
+  },
+  multiselectOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  multiselectOptionSelected: {
+    backgroundColor: '#20B2AA',
+    borderColor: '#20B2AA',
+  },
+  multiselectOptionText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  multiselectOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  sizesContainer: {
+    marginBottom: 12,
+  },
+  sizesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sizePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sizePriceInput: {
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    padding: 8,
+    marginLeft: 8,
+    fontSize: 14,
+    backgroundColor: '#F9FAFB',
+    color: '#1F2937',
+    minWidth: 80,
+    maxWidth: 100,
+  },
+  sizeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    minWidth: 60,
+  },
+  sizePriceHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginBottom: 8,
   },
 });
 

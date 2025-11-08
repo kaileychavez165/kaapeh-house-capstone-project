@@ -151,6 +151,11 @@ const Menu = () => {
         category: newItem.category,
         image_url: newItem.image_url,
         available: newItem.available,
+        served_hot: newItem.served_hot,
+        served_cold: newItem.served_cold,
+        allow_customizations: newItem.allow_customizations,
+        sizes: newItem.sizes,
+        sub_category: newItem.sub_category,
       });
 
       // Reload menu items to get the latest from database

@@ -11,6 +11,11 @@ export interface MenuItem {
     available: boolean;
     created_at: string;
     updated_at: string;
+    served_hot?: boolean;
+    served_cold?: boolean;
+    allow_customizations?: string[];
+    sizes?: Record<string, number>; // JSONB: size -> price mapping
+    sub_category?: 'Milk' | 'Syrup' | 'Flavor' | 'Extras';
 }
 
 export interface MenuCategory {
@@ -187,6 +192,11 @@ export const addMenuItem = async (
         category: string;
         image_url: string;
         available: boolean;
+        served_hot?: boolean;
+        served_cold?: boolean;
+        allow_customizations?: string[];
+        sizes?: Record<string, number>; // size -> price mapping
+        sub_category?: 'Milk' | 'Syrup' | 'Flavor' | 'Extras';
     }
 ): Promise<MenuItem> => {
     try {
@@ -199,6 +209,11 @@ export const addMenuItem = async (
                 category: item.category,
                 image_url: item.image_url,
                 available: item.available,
+                served_hot: item.served_hot ?? null,
+                served_cold: item.served_cold ?? null,
+                allow_customizations: item.allow_customizations && item.allow_customizations.length > 0 ? item.allow_customizations : null,
+                sizes: item.sizes && Object.keys(item.sizes).length > 0 ? item.sizes : null,
+                sub_category: item.sub_category || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
