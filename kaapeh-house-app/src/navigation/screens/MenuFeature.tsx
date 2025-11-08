@@ -113,11 +113,11 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
     }
 
     const priceValue = parseFloat(editedPrice.replace('$', '').trim());
-    // Allow $0 price for Extras category items, otherwise require > 0
-    const isExtrasCategory = item.category === 'Extras';
-    if (isNaN(priceValue) || (!isExtrasCategory && priceValue <= 0) || (isExtrasCategory && priceValue < 0)) {
-      Alert.alert('Validation Error', isExtrasCategory 
-        ? 'Please enter a valid price (can be $0 for Extras items)' 
+    // Allow $0 price for Customizations category items, otherwise require > 0
+    const isCustomizationsCategory = item.category === 'Customizations';
+    if (isNaN(priceValue) || (!isCustomizationsCategory && priceValue <= 0) || (isCustomizationsCategory && priceValue < 0)) {
+      Alert.alert('Validation Error', isCustomizationsCategory 
+        ? 'Please enter a valid price (can be $0 for Customizations items)' 
         : 'Please enter a valid price');
       return;
     }
@@ -325,11 +325,11 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
     }
 
     const priceValue = parseFloat(price.replace('$', '').trim());
-    // Allow $0 price for Extras category items, otherwise require > 0
-    const isExtrasCategory = category === 'Extras';
-    if (isNaN(priceValue) || (!isExtrasCategory && priceValue <= 0) || (isExtrasCategory && priceValue < 0)) {
-      Alert.alert('Validation Error', isExtrasCategory 
-        ? 'Please enter a valid price (can be $0 for Extras items)' 
+    // Allow $0 price for Customizations category items, otherwise require > 0
+    const isCustomizationsCategory = category === 'Customizations';
+    if (isNaN(priceValue) || (!isCustomizationsCategory && priceValue <= 0) || (isCustomizationsCategory && priceValue < 0)) {
+      Alert.alert('Validation Error', isCustomizationsCategory 
+        ? 'Please enter a valid price (can be $0 for Customizations items)' 
         : 'Please enter a valid price');
       return;
     }

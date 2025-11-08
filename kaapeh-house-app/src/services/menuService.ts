@@ -18,7 +18,7 @@ export interface MenuCategory {
 }
 
 // Fetch all menu items (including unavailable ones)
-// excludeAdminCategories: if true, excludes admin-only categories like 'Extras'
+// excludeAdminCategories: if true, excludes admin-only categories like 'Customizations'
 export const fetchMenuItems = async (excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
         let query = supabase
@@ -27,7 +27,7 @@ export const fetchMenuItems = async (excludeAdminCategories: boolean = false): P
 
         // Exclude admin-only categories if requested
         if (excludeAdminCategories) {
-            query = query.neq('category', 'Extras');
+            query = query.neq('category', 'Customizations');
         }
 
         const { data, error } = await query
@@ -46,11 +46,11 @@ export const fetchMenuItems = async (excludeAdminCategories: boolean = false): P
 };
 
 // Fetch menu items by category for filtering
-// excludeAdminCategories: if true, prevents fetching admin-only categories like 'Extras'
+// excludeAdminCategories: if true, prevents fetching admin-only categories like 'Customizations'
 export const fetchMenuItemsByCategory = async (category: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
-        // If excluding admin categories and category is 'Extras', return empty array
-        if (excludeAdminCategories && category === 'Extras') {
+        // If excluding admin categories and category is 'Customizations', return empty array
+        if (excludeAdminCategories && category === 'Customizations') {
             return [];
         }
 
@@ -73,7 +73,7 @@ export const fetchMenuItemsByCategory = async (category: string, excludeAdminCat
 };
 
 // Fetch all available categories
-// forAdmin: if true, includes admin-only categories like 'Extras'
+// forAdmin: if true, includes admin-only categories like 'Customizations'
 export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<string[]> => {
     try {
         // Base categories visible to all users
@@ -88,7 +88,7 @@ export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<st
         
         // Add admin-only categories if requested
         if (forAdmin) {
-            return [...baseCategories, 'Extras'];
+            return [...baseCategories, 'Customizations'];
         }
         
         return baseCategories;
@@ -99,7 +99,7 @@ export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<st
 };
 
 // Search menu items (including unavailable ones)
-// excludeAdminCategories: if true, excludes admin-only categories like 'Extras'
+// excludeAdminCategories: if true, excludes admin-only categories like 'Customizations'
 export const searchMenuItems = async (query: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
         let searchQuery = supabase
@@ -109,7 +109,7 @@ export const searchMenuItems = async (query: string, excludeAdminCategories: boo
 
         // Exclude admin-only categories if requested
         if (excludeAdminCategories) {
-            searchQuery = searchQuery.neq('category', 'Extras');
+            searchQuery = searchQuery.neq('category', 'Customizations');
         }
 
         const { data, error } = await searchQuery.order('created_at', { ascending: false });
