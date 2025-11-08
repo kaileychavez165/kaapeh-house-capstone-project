@@ -73,7 +73,6 @@ const Menu = () => {
   const dropdownOpacity = useState(new Animated.Value(0))[0];
   const dropdownScale = useState(new Animated.Value(0.8))[0];
 
-  // Subcategory options
   const subCategoryOptions = ['All Subcategories', 'Milk', 'Syrup', 'Flavor', 'Extras'];
 
   // Convert database MenuItem to display MenuItem
@@ -94,7 +93,6 @@ const Menu = () => {
   // Load menu items on mount and when category changes
   useEffect(() => {
     loadMenuItems();
-    // Reset subcategory filter when category changes
     if (selectedCategory !== 'Customizations') {
       setSelectedSubCategory('All Subcategories');
     }
@@ -212,7 +210,6 @@ const Menu = () => {
     setItemToDelete(null);
   };
 
-  // Handle dropdown toggle with animation
   const toggleSubCategoryDropdown = () => {
     if (showSubCategoryDropdown) {
       // Close dropdown
@@ -248,7 +245,6 @@ const Menu = () => {
     }
   };
 
-  // Handle subcategory selection with animation
   const handleSubCategorySelection = (subCategory: string) => {
     setSelectedSubCategory(subCategory);
     Animated.parallel([

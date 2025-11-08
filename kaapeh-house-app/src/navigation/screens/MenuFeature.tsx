@@ -160,7 +160,6 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
       const sizeOrder = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
       const existingSizes = Object.keys(editedSizes);
       if (existingSizes.length > 0) {
-        // Find the smallest size that exists
         let smallestSize: string | null = null;
         for (const size of sizeOrder) {
           if (existingSizes.includes(size)) {
@@ -171,7 +170,7 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
 
         if (smallestSize) {
           const smallestSizePrice = parseFloat(editedSizes[smallestSize].replace('$', '').trim());
-          if (Math.abs(smallestSizePrice - priceValue) > 0.01) { // Allow small floating point differences
+          if (Math.abs(smallestSizePrice - priceValue) > 0.01) {
             Alert.alert('Validation Error', `The price for ${smallestSize} (${smallestSizePrice.toFixed(2)}) must equal the base price (${priceValue.toFixed(2)})`);
             return;
           }
@@ -390,7 +389,6 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   
-  // New optional fields
   const [servedHot, setServedHot] = React.useState(false);
   const [servedCold, setServedCold] = React.useState(false);
   const [allowCustomizations, setAllowCustomizations] = React.useState<string[]>([]);
@@ -409,7 +407,7 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
   const sizeOptions = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
   const subCategoryOptions: ('Milk' | 'Syrup' | 'Flavor' | 'Extras')[] = ['Milk', 'Syrup', 'Flavor', 'Extras'];
 
-  // Helper functions for multiselect
+  // Used for multiselect
   const toggleCustomization = (option: string) => {
     setAllowCustomizations(prev => 
       prev.includes(option) 
@@ -484,20 +482,17 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
 
     // Validate drink category requirements
     if (showDrinkOptions) {
-      // Must have at least one serving option selected
       if (!servedHot && !servedCold) {
         Alert.alert('Validation Error', 'Please select at least one serving option (Served Hot or Served Cold)');
         return;
       }
 
-      // Must have at least one size selected
       const selectedSizes = Object.keys(sizes);
       if (selectedSizes.length === 0) {
         Alert.alert('Validation Error', 'Please select at least one available size');
         return;
       }
 
-      // Validate that all selected sizes have prices
       for (const size of selectedSizes) {
         const sizePriceStr = sizes[size]?.trim() || '';
         const sizePrice = parseFloat(sizePriceStr.replace('$', '').trim());
@@ -507,10 +502,9 @@ export const AddItemMode: React.FC<AddItemModeProps> = ({ categories, onSave, on
         }
       }
 
-      // Validate that the smallest size price equals the base price
       if (selectedSizes.length > 0) {
         const sizeOrder = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
-        // Find the smallest size that was selected
+
         let smallestSize: string | null = null;
         for (const size of sizeOrder) {
           if (selectedSizes.includes(size)) {
