@@ -11,6 +11,11 @@ export interface MenuItem {
     available: boolean;
     created_at: string;
     updated_at: string;
+    served_hot?: boolean;
+    served_cold?: boolean;
+    allow_customizations?: string[];
+    sizes?: Record<string, number>; // JSONB: size -> price mapping
+    sub_category?: 'Milk' | 'Syrup' | 'Flavor' | 'Extras';
 }
 
 export interface MenuCategory {
@@ -18,7 +23,7 @@ export interface MenuCategory {
 }
 
 // Fetch all menu items (including unavailable ones)
-// excludeAdminCategories: if true, excludes admin-only categories like 'Extras'
+// excludeAdminCategories: if true, excludes admin-only categories like 'Customizations'
 export const fetchMenuItems = async (excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
         let query = supabase
@@ -27,7 +32,7 @@ export const fetchMenuItems = async (excludeAdminCategories: boolean = false): P
 
         // Exclude admin-only categories if requested
         if (excludeAdminCategories) {
-            query = query.neq('category', 'Extras');
+            query = query.neq('category', 'Customizations');
         }
 
         const { data, error } = await query
@@ -46,11 +51,11 @@ export const fetchMenuItems = async (excludeAdminCategories: boolean = false): P
 };
 
 // Fetch menu items by category for filtering
-// excludeAdminCategories: if true, prevents fetching admin-only categories like 'Extras'
+// excludeAdminCategories: if true, prevents fetching admin-only categories like 'Customizations'
 export const fetchMenuItemsByCategory = async (category: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
-        // If excluding admin categories and category is 'Extras', return empty array
-        if (excludeAdminCategories && category === 'Extras') {
+        // If excluding admin categories and category is 'Customizations', return empty array
+        if (excludeAdminCategories && category === 'Customizations') {
             return [];
         }
 
@@ -73,7 +78,7 @@ export const fetchMenuItemsByCategory = async (category: string, excludeAdminCat
 };
 
 // Fetch all available categories
-// forAdmin: if true, includes admin-only categories like 'Extras'
+// forAdmin: if true, includes admin-only categories like 'Customizations'
 export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<string[]> => {
     try {
         // Base categories visible to all users
@@ -88,7 +93,7 @@ export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<st
         
         // Add admin-only categories if requested
         if (forAdmin) {
-            return [...baseCategories, 'Extras'];
+            return [...baseCategories, 'Customizations'];
         }
         
         return baseCategories;
@@ -99,7 +104,7 @@ export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<st
 };
 
 // Search menu items (including unavailable ones)
-// excludeAdminCategories: if true, excludes admin-only categories like 'Extras'
+// excludeAdminCategories: if true, excludes admin-only categories like 'Customizations'
 export const searchMenuItems = async (query: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
         let searchQuery = supabase
@@ -109,7 +114,7 @@ export const searchMenuItems = async (query: string, excludeAdminCategories: boo
 
         // Exclude admin-only categories if requested
         if (excludeAdminCategories) {
-            searchQuery = searchQuery.neq('category', 'Extras');
+            searchQuery = searchQuery.neq('category', 'Customizations');
         }
 
         const { data, error } = await searchQuery.order('created_at', { ascending: false });
@@ -135,6 +140,7 @@ export const updateMenuItem = async (
         price?: number;
         image_url?: string;
         available?: boolean;
+        sizes?: Record<string, number>;
     }
 ): Promise<MenuItem> => {
     try {
@@ -142,6 +148,7 @@ export const updateMenuItem = async (
             .from('menu_items')
             .update({
                 ...updates,
+                sizes: updates.sizes && Object.keys(updates.sizes).length > 0 ? updates.sizes : null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', id)
@@ -187,6 +194,11 @@ export const addMenuItem = async (
         category: string;
         image_url: string;
         available: boolean;
+        served_hot?: boolean;
+        served_cold?: boolean;
+        allow_customizations?: string[];
+        sizes?: Record<string, number>; // size -> price mapping
+        sub_category?: 'Milk' | 'Syrup' | 'Flavor' | 'Extras';
     }
 ): Promise<MenuItem> => {
     try {
@@ -199,6 +211,11 @@ export const addMenuItem = async (
                 category: item.category,
                 image_url: item.image_url,
                 available: item.available,
+                served_hot: item.served_hot ?? null,
+                served_cold: item.served_cold ?? null,
+                allow_customizations: item.allow_customizations && item.allow_customizations.length > 0 ? item.allow_customizations : null,
+                sizes: item.sizes && Object.keys(item.sizes).length > 0 ? item.sizes : null,
+                sub_category: item.sub_category || null,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })

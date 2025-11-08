@@ -9,6 +9,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
@@ -65,6 +66,14 @@ const Menu = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All Subcategories');
+  const [showSubCategoryDropdown, setShowSubCategoryDropdown] = useState(false);
+
+  // Animation for dropdown
+  const dropdownOpacity = useState(new Animated.Value(0))[0];
+  const dropdownScale = useState(new Animated.Value(0.8))[0];
+
+  const subCategoryOptions = ['All Subcategories', 'Milk', 'Syrup', 'Flavor', 'Extras'];
 
   // Convert database MenuItem to display MenuItem
   const convertDbToDisplay = (dbItem: DbMenuItem): MenuItem => {
@@ -76,12 +85,17 @@ const Menu = () => {
       available: dbItem.available,
       image_url: dbItem.image_url || '',
       description: dbItem.description,
+      sub_category: dbItem.sub_category,
+      sizes: dbItem.sizes,
     };
   };
 
   // Load menu items on mount and when category changes
   useEffect(() => {
     loadMenuItems();
+    if (selectedCategory !== 'Customizations') {
+      setSelectedSubCategory('All Subcategories');
+    }
   }, [selectedCategory]);
 
   // Load categories on mount
@@ -129,6 +143,7 @@ const Menu = () => {
         price: updatedItem.price,
         image_url: updatedItem.image_url,
         available: updatedItem.available,
+        sizes: updatedItem.sizes,
       });
 
       // Reload menu items to get the latest from database
@@ -151,6 +166,11 @@ const Menu = () => {
         category: newItem.category,
         image_url: newItem.image_url,
         available: newItem.available,
+        served_hot: newItem.served_hot,
+        served_cold: newItem.served_cold,
+        allow_customizations: newItem.allow_customizations,
+        sizes: newItem.sizes,
+        sub_category: newItem.sub_category,
       });
 
       // Reload menu items to get the latest from database
@@ -190,9 +210,72 @@ const Menu = () => {
     setItemToDelete(null);
   };
 
-  const filteredMenuItems = selectedCategory === 'All Items'
-    ? menuItems
-    : menuItems.filter(item => item.category === selectedCategory);
+  const toggleSubCategoryDropdown = () => {
+    if (showSubCategoryDropdown) {
+      // Close dropdown
+      Animated.parallel([
+        Animated.timing(dropdownOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownScale, {
+          toValue: 0.8,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowSubCategoryDropdown(false);
+      });
+    } else {
+      // Open dropdown
+      setShowSubCategoryDropdown(true);
+      Animated.parallel([
+        Animated.timing(dropdownOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownScale, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  const handleSubCategorySelection = (subCategory: string) => {
+    setSelectedSubCategory(subCategory);
+    Animated.parallel([
+      Animated.timing(dropdownOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(dropdownScale, {
+        toValue: 0.8,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowSubCategoryDropdown(false);
+    });
+  };
+
+  // Filter menu items by category and subcategory
+  const filteredMenuItems = (() => {
+    let filtered = selectedCategory === 'All Items'
+      ? menuItems
+      : menuItems.filter(item => item.category === selectedCategory);
+    
+    // Apply subcategory filter if Customizations category is selected
+    if (selectedCategory === 'Customizations' && selectedSubCategory !== 'All Subcategories') {
+      filtered = filtered.filter(item => item.sub_category === selectedSubCategory);
+    }
+    
+    return filtered;
+  })();
 
   return (
     <View style={styles.container}>
@@ -248,6 +331,78 @@ const Menu = () => {
           </TouchableOpacity>
         )) : null}
       </ScrollView>
+
+      {/* Subcategory Filter - Only show for Customizations category */}
+      {selectedCategory === 'Customizations' && (
+        <View style={styles.subCategoryFilterContainer}>
+          <View style={styles.subCategoryFilterContent}>
+            <Text style={styles.subCategoryLabel}>Filter by Subcategory:</Text>
+            <View style={styles.sortContainer}>
+              <TouchableOpacity 
+                style={styles.sortButton}
+                onPress={toggleSubCategoryDropdown}
+              >
+                <Text style={styles.sortText}>{selectedSubCategory}</Text>
+                <Text style={styles.sortArrow}>{showSubCategoryDropdown ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+              
+              {showSubCategoryDropdown && (
+                <Animated.View 
+                  style={[
+                    styles.dropdown,
+                    {
+                      opacity: dropdownOpacity,
+                      transform: [{ scale: dropdownScale }],
+                    }
+                  ]}
+                >
+                  {subCategoryOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.dropdownItem,
+                        selectedSubCategory === option && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => handleSubCategorySelection(option)}
+                    >
+                      <Text style={[
+                        styles.dropdownText,
+                        selectedSubCategory === option && styles.selectedDropdownText
+                      ]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </Animated.View>
+              )}
+            </View>
+          </View>
+          
+          {/* Backdrop overlay to close dropdown when tapping outside */}
+          {showSubCategoryDropdown && (
+            <View
+              style={styles.dropdownBackdrop}
+              onStartShouldSetResponder={() => true}
+              onResponderRelease={() => {
+                Animated.parallel([
+                  Animated.timing(dropdownOpacity, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                  }),
+                  Animated.timing(dropdownScale, {
+                    toValue: 0.8,
+                    duration: 150,
+                    useNativeDriver: true,
+                  }),
+                ]).start(() => {
+                  setShowSubCategoryDropdown(false);
+                });
+              }}
+            />
+          )}
+        </View>
+      )}
 
       {/* Menu Item List */}
       <ScrollView 
@@ -585,6 +740,91 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#6B7280',
+  },
+  subCategoryFilterContainer: {
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  subCategoryFilterContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  subCategoryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginRight: 12,
+  },
+  sortContainer: {
+    position: 'relative',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  sortText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginRight: 4,
+  },
+  sortArrow: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1000,
+    minWidth: 160,
+  },
+  dropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  selectedDropdownItem: {
+    backgroundColor: '#F0FDF4',
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  selectedDropdownText: {
+    color: '#20B2AA',
+    fontWeight: '600',
+  },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 900,
   },
 });
 
