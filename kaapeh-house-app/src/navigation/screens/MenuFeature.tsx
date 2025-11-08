@@ -90,6 +90,24 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
+  // Size prices for drink categories
+  const [editedSizes, setEditedSizes] = React.useState<Record<string, string>>(() => {
+    // Initialize with existing sizes, converting numbers to strings for input
+    if (item.sizes) {
+      const sizesObj: Record<string, string> = {};
+      for (const [size, price] of Object.entries(item.sizes)) {
+        sizesObj[size] = price.toString();
+      }
+      return sizesObj;
+    }
+    return {};
+  });
+
+  // Check if this is a drink category
+  const drinkCategories = ['Coffee', 'Tea & Other Drinks', 'Seasonal Items'];
+  const isDrinkCategory = drinkCategories.includes(item.category);
+  const sizeOptions = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
+
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -127,6 +145,40 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
       return;
     }
 
+    // Validate size prices for drink categories
+    if (isDrinkCategory && item.sizes && Object.keys(item.sizes).length > 0) {
+      // Validate all size prices are valid numbers
+      for (const [size, priceStr] of Object.entries(editedSizes)) {
+        const sizePrice = parseFloat(priceStr.replace('$', '').trim());
+        if (!priceStr || isNaN(sizePrice) || sizePrice <= 0) {
+          Alert.alert('Validation Error', `Please enter a valid price for ${size}`);
+          return;
+        }
+      }
+
+      // Find the smallest size and validate its price matches base price
+      const sizeOrder = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
+      const existingSizes = Object.keys(editedSizes);
+      if (existingSizes.length > 0) {
+        // Find the smallest size that exists
+        let smallestSize: string | null = null;
+        for (const size of sizeOrder) {
+          if (existingSizes.includes(size)) {
+            smallestSize = size;
+            break;
+          }
+        }
+
+        if (smallestSize) {
+          const smallestSizePrice = parseFloat(editedSizes[smallestSize].replace('$', '').trim());
+          if (Math.abs(smallestSizePrice - priceValue) > 0.01) { // Allow small floating point differences
+            Alert.alert('Validation Error', `The price for ${smallestSize} (${smallestSizePrice.toFixed(2)}) must equal the base price (${priceValue.toFixed(2)})`);
+            return;
+          }
+        }
+      }
+    }
+
     setIsSaving(true);
 
     try {
@@ -149,6 +201,18 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         setIsUploading(false);
       }
 
+      // Convert edited sizes to number object if drink category
+      let sizesObject: Record<string, number> | undefined = undefined;
+      if (isDrinkCategory && Object.keys(editedSizes).length > 0) {
+        sizesObject = {};
+        for (const [size, priceStr] of Object.entries(editedSizes)) {
+          const sizePrice = parseFloat(priceStr.replace('$', '').trim());
+          if (!isNaN(sizePrice) && sizePrice > 0) {
+            sizesObject[size] = sizePrice;
+          }
+        }
+      }
+
       // Call onSave with updated item
       onSave({
         ...item,
@@ -157,6 +221,7 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         price: priceValue,
         available: editedStatus === 'Available',
         image_url: imageUrl,
+        sizes: sizesObject,
       });
     } catch (error) {
       console.error('Error saving item:', error);
@@ -193,6 +258,37 @@ export const EditMode: React.FC<EditModeProps> = ({ item, onSave, onCancel }) =>
         placeholderTextColor="#9CA3AF"
         keyboardType="decimal-pad"
       />
+
+      {/* Size Prices Editor - Only for drink categories with sizes */}
+      {isDrinkCategory && item.sizes && Object.keys(item.sizes).length > 0 && (
+        <View style={styles.sizesContainer}>
+          <Text style={styles.multiselectLabel}>Size Prices</Text>
+          <Text style={styles.sizePriceHint}>Note: The smallest size price must match the base price above.</Text>
+          <View style={styles.sizesGrid}>
+            {Object.keys(item.sizes).sort((a, b) => {
+              const order = ['2 oz', '6 oz', '12 oz', '16 oz', '20 oz'];
+              return order.indexOf(a) - order.indexOf(b);
+            }).map((size) => (
+              <View key={size} style={styles.sizePriceRow}>
+                <Text style={styles.sizeLabel}>{size}:</Text>
+                <TextInput
+                  style={styles.sizePriceInput}
+                  value={editedSizes[size] || ''}
+                  onChangeText={(text) => {
+                    setEditedSizes(prev => ({
+                      ...prev,
+                      [size]: text,
+                    }));
+                  }}
+                  placeholder="Price"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Image Picker */}
       <View style={styles.imagePickerContainer}>

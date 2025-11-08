@@ -140,6 +140,7 @@ export const updateMenuItem = async (
         price?: number;
         image_url?: string;
         available?: boolean;
+        sizes?: Record<string, number>;
     }
 ): Promise<MenuItem> => {
     try {
@@ -147,6 +148,7 @@ export const updateMenuItem = async (
             .from('menu_items')
             .update({
                 ...updates,
+                sizes: updates.sizes && Object.keys(updates.sizes).length > 0 ? updates.sizes : null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', id)
