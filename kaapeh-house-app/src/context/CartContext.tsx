@@ -8,11 +8,13 @@ export interface CartItem {
   price: number;
   rating: number;
   category: string;
-  image: any;
+  image?: any;
+  image_url?: string;
   available: boolean;
-  size: string;
-  temperature: string;
+  size?: string;
+  temperature?: string;
   quantity: number;
+  customizations?: Record<string, string>; // subCategory -> customization name (e.g., "Milk" -> "2% Milk", "Syrup" -> "Vanilla")
 }
 
 interface CartContextValue {
@@ -50,9 +52,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addItem = useCallback((item: CartItem) => {
     setItems(prev => {
-      // Merge by id + size + temperature
+      // Merge by id + size + temperature + customizations
+      const customizationsMatch = (a?: Record<string, string>, b?: Record<string, string>) => {
+        if (!a && !b) return true;
+        if (!a || !b) return false;
+        const aKeys = Object.keys(a).sort();
+        const bKeys = Object.keys(b).sort();
+        if (aKeys.length !== bKeys.length) return false;
+        return aKeys.every(key => a[key] === b[key]);
+      };
+      
       const idx = prev.findIndex(
-        i => i.id === item.id && i.size === item.size && i.temperature === item.temperature
+        i => i.id === item.id && 
+        i.size === item.size && 
+        i.temperature === item.temperature &&
+        customizationsMatch(i.customizations, item.customizations)
       );
       if (idx >= 0) {
         const copy = [...prev];

@@ -18,19 +18,7 @@ import BottomNavigationBar from '../../components/BottomNavigationBar';
 // Define the route params interface (optional, for backward compatibility)
 type RootStackParamList = {
   OrderDetail: {
-    cartItems?: Array<{
-      id: string;
-      name: string;
-      description: string;
-      price: number;
-      rating: number;
-      category: string;
-      image: any;
-      available: boolean;
-      size: string;
-      temperature: string;
-      quantity: number;
-    }>;
+    cartItems?: CartItem[];
   };
 };
 
@@ -38,9 +26,51 @@ type OrderDetailRouteProp = RouteProp<RootStackParamList, 'OrderDetail'>;
 
 interface OrderDetailScreenProps {}
 
-// Helper function to create unique key for items with same ID but different size/temperature
+// Helper function to create unique key for items with same ID but different size/temperature/customizations
 const getItemKey = (item: CartItem) => {
-  return `${item.id}-${item.size}-${item.temperature}`;
+  const customizationsKey = item.customizations 
+    ? Object.entries(item.customizations).sort().map(([k, v]) => `${k}:${v}`).join(',')
+    : '';
+  return `${item.id}-${item.size || ''}-${item.temperature || ''}-${customizationsKey}`;
+};
+
+// Helper function to format customizations for display
+const formatCustomizations = (customizations?: Record<string, string>): string => {
+  if (!customizations || Object.keys(customizations).length === 0) {
+    return '';
+  }
+  
+  // Format: "Milk: 2% Milk, Syrup: Vanilla"
+  return Object.entries(customizations)
+    .map(([category, name]) => `${category}: ${name}`)
+    .join(', ');
+};
+
+// Helper function to get image source (similar to DrinkDetail)
+const getImageSource = (item: CartItem) => {
+  // Check if image_url is valid
+  const isValidImageUrl = (url: string | null | undefined): boolean => {
+    if (!url || url.trim() === '') return false;
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+  
+  // Check image_url first (from database)
+  if (isValidImageUrl(item.image_url)) {
+    return { uri: item.image_url! };
+  }
+  
+  // Fallback to image if it exists
+  if (item.image) {
+    return item.image;
+  }
+  
+  // Use placeholder image if no valid image is found
+  return require('../../assets/images/no-image-available.jpg');
 };
 
 export default function OrderDetailScreen() {
@@ -190,25 +220,42 @@ export default function OrderDetailScreen() {
               const itemKey = getItemKey(item);
               return (
                 <View key={itemKey} style={styles.itemCard}>
-                  <Image source={item.image} style={styles.itemImage} resizeMode="cover" />
+                  <Image source={getImageSource(item)} style={styles.itemImage} resizeMode="cover" />
                   <View style={styles.itemDetails}>
                     <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemDescription}>{item.temperature} • {item.size}</Text>
+                    <View style={styles.itemDescriptionContainer}>
+                      {/* Temperature and Size */}
+                      {(item.temperature || item.size) && (
+                        <Text style={styles.itemDescription}>
+                          {[item.temperature, item.size].filter(Boolean).join(' • ')}
+                        </Text>
+                      )}
+                      {/* Customizations */}
+                      {item.customizations && Object.keys(item.customizations).length > 0 && (
+                        <Text style={styles.itemCustomizations}>
+                          {formatCustomizations(item.customizations)}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                  <View style={styles.quantitySelector}>
-                    <TouchableOpacity 
-                      style={styles.quantityButton}
-                      onPress={() => updateQuantity(item, -1)}
-                    >
-                      <MaterialCommunityIcons name="minus" size={16} color="#666666" />
-                    </TouchableOpacity>
-                    <Text style={styles.quantityText}>{quantities[itemKey] || item.quantity || 1}</Text>
-                    <TouchableOpacity 
-                      style={styles.quantityButton}
-                      onPress={() => updateQuantity(item, 1)}
-                    >
-                      <MaterialCommunityIcons name="plus" size={16} color="#666666" />
-                    </TouchableOpacity>
+                  <View style={styles.quantityAndPriceContainer}>
+                    <View style={styles.quantitySelector}>
+                      <TouchableOpacity 
+                        style={styles.quantityButton}
+                        onPress={() => updateQuantity(item, -1)}
+                      >
+                        <MaterialCommunityIcons name="minus" size={16} color="#666666" />
+                      </TouchableOpacity>
+                      <Text style={styles.quantityText}>{quantities[itemKey] || item.quantity || 1}</Text>
+                      <TouchableOpacity 
+                        style={styles.quantityButton}
+                        onPress={() => updateQuantity(item, 1)}
+                      >
+                        <MaterialCommunityIcons name="plus" size={16} color="#666666" />
+                      </TouchableOpacity>
+                    </View>
+                    {/* Item Price */}
+                    <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
                   </View>
                 </View>
               );
@@ -248,7 +295,7 @@ export default function OrderDetailScreen() {
           <Text style={styles.paymentSummaryTitle}>Payment Summary</Text>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Price</Text>
-            <Text style={styles.paymentValue}>$ {subtotal.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>${subtotal.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -437,9 +484,28 @@ const styles = StyleSheet.create({
     color: '#2B2B2B',
     marginBottom: 4,
   },
+  itemDescriptionContainer: {
+    marginTop: 4,
+  },
   itemDescription: {
     fontSize: 14,
     color: '#666666',
+    marginBottom: 4,
+  },
+  itemCustomizations: {
+    fontSize: 13,
+    color: '#666666',
+  },
+  quantityAndPriceContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#acc18a',
+    marginTop: 8,
+    textAlign: 'center',
   },
   quantitySelector: {
     flexDirection: 'row',
