@@ -234,6 +234,59 @@ export const addMenuItem = async (
     }
 };
 
+// Fetch a single menu item by ID
+export const fetchMenuItemById = async (id: string): Promise<MenuItem | null> => {
+    try {
+        const { data, error } = await supabase
+            .from('menu_items')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            console.error('Error fetching menu item by ID:', error);
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error in fetchMenuItemById:', error);
+        throw error;
+    }
+};
+
+// Fetch customization items by sub_category (for Milk, Syrup, Flavor, Extras)
+// includeUnavailable: if true, includes unavailable items
+export const fetchCustomizationItems = async (
+    subCategory: 'Milk' | 'Syrup' | 'Flavor' | 'Extras',
+    includeUnavailable: boolean = false
+): Promise<MenuItem[]> => {
+    try {
+        let query = supabase
+            .from('menu_items')
+            .select('*')
+            .eq('category', 'Customizations')
+            .eq('sub_category', subCategory);
+
+        // Only filter by available if includeUnavailable is false
+        if (!includeUnavailable) {
+            query = query.eq('available', true);
+        }
+
+        const { data, error } = await query.order('name', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching customization items:', error);
+            throw error;
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error in fetchCustomizationItems:', error);
+        throw error;
+    }
+};
+
 // Upload image to Supabase storage
 export const uploadImageToStorage = async (
     imageUri: string,
