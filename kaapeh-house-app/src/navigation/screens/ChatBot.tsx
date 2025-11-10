@@ -40,7 +40,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hi! I'm your Kaapeh House assistant! ☕️ How can I help you today?",
+      text: "Hi! I'm Kaapi, your Kaapeh House assistant! ☕️ How can I help you today?",
       isUser: false,
       timestamp: new Date(),
     },
