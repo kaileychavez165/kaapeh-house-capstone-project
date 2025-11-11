@@ -196,13 +196,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
           <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <MaterialCommunityIcons
-            name="emoticon-happy-outline"
-            size={24}
-            color="#FFFFFF"
-            style={styles.headerIcon}
-          />
-          <Text style={styles.headerTitle}>Chat Assistant</Text>
+          <Text style={styles.headerTitle}>Kaapi Knows Coffee ☕</Text>
         </View>
         <View style={styles.headerRight} />
       </View>
