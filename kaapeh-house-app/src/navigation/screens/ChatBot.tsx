@@ -14,6 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Session } from '@supabase/supabase-js';
 import { sendChatMessage, getSystemPrompt, getMenuContext } from '../../services/azureOpenAIService';
@@ -226,77 +227,91 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Chat with Kaapi ☕</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.appIconCircle}>
+            <MaterialCommunityIcons name="coffee" size={22} color="#FFFFFF" />
+            <View style={styles.onlineDot} />
+          </View>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.headerTitle}>Chat with Kaapi</Text>
+            <Text style={styles.headerSubtitle}>Your friendly coffee guide</Text>
+          </View>
         </View>
-        <View style={styles.headerRight} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
-        {/* Messages Area */}
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
+      <View style={styles.chatSurface}>
+        <KeyboardAvoidingView
+          style={styles.content}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-          {messages.map((message) => renderMessage(message))}
-          {isLoading && (
-            <View style={styles.loadingMessageContainer}>
-              <View style={styles.botAvatar}>
-                <MaterialCommunityIcons name="robot" size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.loadingBubble}>
-                <ActivityIndicator size="small" color="#acc18a" />
-                <Text style={styles.loadingText}>
-                  {LOADING_MESSAGES[loadingMessageIndex]}
-                </Text>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Input Area */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type your message..."
-            placeholderTextColor="#999"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton, 
-              (inputText.trim() === '' || isLoading || isInitializing) && styles.sendButtonDisabled
-            ]}
-            onPress={handleSendMessage}
-            disabled={inputText.trim() === '' || isLoading || isInitializing}
+          {/* Messages Area */}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.messagesContainer}
+            contentContainerStyle={styles.messagesContent}
+            showsVerticalScrollIndicator={false}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <MaterialCommunityIcons
-                name="send"
-                size={24}
-                color={inputText.trim() === '' ? '#CCCCCC' : '#FFFFFF'}
-              />
+            {messages.map((message) => renderMessage(message))}
+            {isLoading && (
+              <View style={styles.loadingMessageContainer}>
+                <View style={styles.botAvatar}>
+                  <MaterialCommunityIcons name="robot" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.loadingBubble}>
+                  <ActivityIndicator size="small" color="#acc18a" />
+                  <Text style={styles.loadingText}>
+                    {LOADING_MESSAGES[loadingMessageIndex]}
+                  </Text>
+                </View>
+              </View>
             )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+          </ScrollView>
+
+          {/* Quick reply chips */}
+          <View style={styles.suggestionChipsRow}>
+            {['Popular drinks', 'Milk options', 'Menu'].map((label) => (
+              <TouchableOpacity key={label} style={styles.suggestionChip} onPress={() => setInputText(label)}>
+                <Text style={styles.suggestionChipText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Input Area */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type your message..."
+              placeholderTextColor="#999"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton, 
+                (inputText.trim() === '' || isLoading || isInitializing) && styles.sendButtonDisabled
+              ]}
+              onPress={handleSendMessage}
+              disabled={inputText.trim() === '' || isLoading || isInitializing}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <MaterialCommunityIcons
+                  name="send"
+                  size={24}
+                  color={inputText.trim() === '' ? '#CCCCCC' : '#FFFFFF'}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -315,29 +330,59 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: '#2B2B2B',
   },
-  backButton: {
-    padding: 8,
-  },
-  headerCenter: {
-    flex: 1,
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
   },
-  headerIcon: {
-    marginRight: 8,
+  backButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  appIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#acc18a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: -2,
+    top: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2ecc71',
+    borderWidth: 2,
+    borderColor: '#2B2B2B',
+  },
+  headerTextGroup: {
+    flexDirection: 'column',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  headerRight: {
-    width: 40,
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#F0E9DD',
+    marginTop: 2,
+  },
+  chatSurface: {
+    flex: 1,
+    backgroundColor: '#F5F1E8',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 12,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
-    backgroundColor: '#F5F1E8',
+    paddingBottom: 0,
   },
   messagesContainer: {
     flex: 1,
@@ -448,6 +493,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     fontStyle: 'italic',
+  },
+  suggestionChipsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  suggestionChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E6E0D3',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  suggestionChipText: {
+    color: '#A0561C',
+    fontWeight: '600',
   },
 });
 
