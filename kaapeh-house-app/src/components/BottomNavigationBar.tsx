@@ -19,8 +19,8 @@ export default function BottomNavigationBar({ currentScreen = 'Home' }: BottomNa
     },
     {
       id: 'Favorites',
-      icon: 'heart',
-      iconOutline: 'heart-outline',
+      icon: 'receipt-text',
+      iconOutline: 'receipt-text-outline',
       active: currentScreen === 'Favorites' || currentScreen === 'MyOrder',
     },
     {

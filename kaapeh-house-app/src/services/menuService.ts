@@ -22,6 +22,25 @@ export interface MenuCategory {
     category: string;
 }
 
+// updated to fetch menu items for AI
+export const fetchMenuItemsforAI = async (): Promise<MenuItem[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('menu_items')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching menu items:', error);
+            throw error;
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error in fetchMenuItems:', error);
+        throw error;
+    }
+};
 // Fetch all menu items (including unavailable ones)
 // excludeAdminCategories: if true, excludes admin-only categories like 'Customizations'
 export const fetchMenuItems = async (excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
