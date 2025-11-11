@@ -16,7 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Session } from '@supabase/supabase-js';
-import { sendChatMessage, getSystemPrompt } from '../../services/azureOpenAIService';
+import { sendChatMessage, getSystemPrompt, getMenuContext } from '../../services/azureOpenAIService';
 
 interface ChatBotProps {
   session: Session | null;
@@ -47,9 +47,33 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatHistoryMessage[]>([
-    { role: 'system', content: getSystemPrompt() },
-  ]);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryMessage[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Fetch menu items and initialize chat history with menu context
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        console.log('📋 Fetching menu items for AI context...');
+        const menuContext = await getMenuContext();
+        const systemPrompt = getSystemPrompt(menuContext);
+        setChatHistory([
+          { role: 'system', content: systemPrompt },
+        ]);
+        console.log('✅ Chat initialized with menu context');
+      } catch (error) {
+        console.error('❌ Error initializing chat with menu context:', error);
+        // Fallback to system prompt without menu context
+        setChatHistory([
+          { role: 'system', content: getSystemPrompt() },
+        ]);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initializeChat();
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -57,7 +81,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (inputText.trim() === '' || isLoading) return;
+    if (inputText.trim() === '' || isLoading || isInitializing) return;
 
     const userMessageText = inputText.trim();
     setInputText('');
@@ -223,10 +247,10 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
           <TouchableOpacity
             style={[
               styles.sendButton, 
-              (inputText.trim() === '' || isLoading) && styles.sendButtonDisabled
+              (inputText.trim() === '' || isLoading || isInitializing) && styles.sendButtonDisabled
             ]}
             onPress={handleSendMessage}
-            disabled={inputText.trim() === '' || isLoading}
+            disabled={inputText.trim() === '' || isLoading || isInitializing}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
