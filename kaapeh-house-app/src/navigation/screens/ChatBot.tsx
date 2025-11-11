@@ -232,7 +232,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
             <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.appIconCircle}>
-            <MaterialCommunityIcons name="coffee" size={22} color="#FFFFFF" />
+            <MaterialCommunityIcons name="robot" size={22} color="#FFFFFF" />
             <View style={styles.onlineDot} />
           </View>
           <View style={styles.headerTextGroup}>
