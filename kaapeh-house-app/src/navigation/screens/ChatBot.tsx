@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   suggestionChipText: {
-    color: '#A0561C',
+    color: '#acc18a',
     fontWeight: '600',
   },
 });
