@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,16 @@ interface ChatHistoryMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
+//message to display while loading
+// coffee related messages lol
+const LOADING_MESSAGES = [
+  'Brewing thoughts...',
+  'Grinding the beans...',
+  'Steaming up an answer...',
+  'Pulling your espresso shot...',
+  'Frothing up a response...',
+  'Tamping down the details...',
+];
 
 export default function ChatBotScreen({ session }: ChatBotProps) {
   const navigation = useNavigation();
@@ -49,6 +59,33 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryMessage[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  const getNextLoadingMessageIndex = useCallback((currentIndex: number) => {
+    if (LOADING_MESSAGES.length <= 1) {
+      return 0;
+    }
+
+    return (currentIndex + 1) % LOADING_MESSAGES.length;
+  }, []);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+
+    if (isLoading) {
+      setLoadingMessageIndex((prev) => getNextLoadingMessageIndex(prev));
+
+      interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => getNextLoadingMessageIndex(prev));
+      }, 1500);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isLoading, getNextLoadingMessageIndex]);
 
   // Fetch menu items and initialize chat history with menu context
   useEffect(() => {
@@ -196,7 +233,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
           <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Kaapi Knows Coffee ☕</Text>
+          <Text style={styles.headerTitle}>Chat with Kaapi ☕</Text>
         </View>
         <View style={styles.headerRight} />
       </View>
@@ -221,7 +258,9 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
               </View>
               <View style={styles.loadingBubble}>
                 <ActivityIndicator size="small" color="#acc18a" />
-                <Text style={styles.loadingText}>Thinking...</Text>
+                <Text style={styles.loadingText}>
+                  {LOADING_MESSAGES[loadingMessageIndex]}
+                </Text>
               </View>
             </View>
           )}
