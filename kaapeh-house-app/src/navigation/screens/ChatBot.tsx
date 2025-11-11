@@ -61,6 +61,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
   const [chatHistory, setChatHistory] = useState<ChatHistoryMessage[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? 110 : 0;
 
   const getNextLoadingMessageIndex = useCallback((currentIndex: number) => {
     if (LOADING_MESSAGES.length <= 1) {
@@ -246,7 +247,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
         <KeyboardAvoidingView
           style={styles.content}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          keyboardVerticalOffset={keyboardVerticalOffset}
         >
           {/* Messages Area */}
           <ScrollView
@@ -254,6 +255,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
             style={styles.messagesContainer}
             contentContainerStyle={styles.messagesContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {messages.map((message) => renderMessage(message))}
             {isLoading && (
@@ -389,7 +391,7 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     padding: 16,
-    paddingBottom: 8,
+    paddingBottom: 24,
     flexGrow: 1,
   },
   messageContainer: {
@@ -448,7 +450,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
@@ -498,7 +500,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
+    paddingTop: 4,
   },
   suggestionChip: {
     backgroundColor: '#FFFFFF',
