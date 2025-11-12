@@ -12,7 +12,7 @@ import {
   Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Svg, Circle, Path } from 'react-native-svg';
+import { Svg, Circle, Path, G } from 'react-native-svg';
 import { EditMode, DeleteConfirmationModal, MenuItem, AddItemMode } from './MenuFeature';
 import { 
   fetchMenuItems, 
@@ -44,6 +44,48 @@ const EditIcon = ({ active = false }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
     <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={active ? "#20B2AA" : "#999"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={active ? "#20B2AA" : "#999"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const TruckIcon = ({ active = false }) => (
+  <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <G transform="translate(1 1) scale(0.88)">
+      <Path
+        d="M3 7h12v10H5a2 2 0 0 1-2-2V7z"
+        stroke={active ? "#20B2AA" : "#999"}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M15 10h3l3 3v4a2 2 0 0 1-2 2h-1"
+        stroke={active ? "#20B2AA" : "#999"}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle
+        cx="7.5"
+        cy="17.5"
+        r="1.5"
+        stroke={active ? "#20B2AA" : "#999"}
+        strokeWidth="2"
+      />
+      <Circle
+        cx="17.5"
+        cy="17.5"
+        r="1.5"
+        stroke={active ? "#20B2AA" : "#999"}
+        strokeWidth="2"
+      />
+      <Path
+        d="M15 14h4"
+        stroke={active ? "#20B2AA" : "#999"}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </G>
   </Svg>
 );
 
@@ -507,6 +549,12 @@ const Menu = () => {
         <TouchableOpacity style={[styles.navItem, styles.activeNavItem]}>
           <EditIcon active={true} />
           <View style={styles.activeIndicator} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate('OrdersHub' as never)}
+        >
+          <TruckIcon active={false} />
         </TouchableOpacity>
       </View>
     </View>

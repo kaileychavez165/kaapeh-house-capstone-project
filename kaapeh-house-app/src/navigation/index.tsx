@@ -12,6 +12,7 @@ import AccountScreen from './screens/Account';
 import AdminHomeScreen from './screens/AdminHome';
 import CustomerPortalScreen from './screens/CustomerPortal';
 import MenuScreen from './screens/Menu';
+import OrdersHubScreen from './screens/OrdersHub';
 import { supabase } from '../../utils/supabase';
 import ChatBotScreen from './screens/ChatBot';
 import DrinkDetailScreen from './screens/DrinkDetail';
@@ -149,13 +150,16 @@ export const Navigation: React.FC<NavigationProps> = ({ session, pendingResetPas
           {() => session ? <HomeScreen session={session} /> : <HomeScreen session={null} />}
         </Stack.Screen>
         <Stack.Screen name="AdminHome">
-          {() => session ? <AdminHomeScreen /> : null}
+          {() => (session && userRole === 'admin') ? <AdminHomeScreen /> : null}
         </Stack.Screen>
         <Stack.Screen name="CustomerPortal">
-          {() => session ? <CustomerPortalScreen /> : null}
+          {() => (session && userRole === 'admin') ? <CustomerPortalScreen /> : null}
         </Stack.Screen>
         <Stack.Screen name="Menu">
-          {() => session ? <MenuScreen /> : null}
+          {() => (session && userRole === 'admin') ? <MenuScreen /> : null}
+        </Stack.Screen>
+        <Stack.Screen name="OrdersHub">
+          {() => (session && userRole === 'admin') ? <OrdersHubScreen /> : null}
         </Stack.Screen>
         <Stack.Screen name="Account">
           {() => session ? <AccountScreen session={session} /> : null}

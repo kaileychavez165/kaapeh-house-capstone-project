@@ -43,6 +43,46 @@ const EditIcon = ({ active = false }) => (
   </Svg>
 );
 
+const TruckIcon = ({ active = false }) => (
+  <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 7h12v10H5a2 2 0 0 1-2-2V7z"
+      stroke={active ? "#20B2AA" : "#999"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M15 10h3l3 3v4a2 2 0 0 1-2 2h-1"
+      stroke={active ? "#20B2AA" : "#999"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx="7.5"
+      cy="17.5"
+      r="1.5"
+      stroke={active ? "#20B2AA" : "#999"}
+      strokeWidth="2"
+    />
+    <Circle
+      cx="17.5"
+      cy="17.5"
+      r="1.5"
+      stroke={active ? "#20B2AA" : "#999"}
+      strokeWidth="2"
+    />
+    <Path
+      d="M15 14h4"
+      stroke={active ? "#20B2AA" : "#999"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const AdminHome = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigation = useNavigation();
@@ -201,6 +241,12 @@ const AdminHome = () => {
           onPress={() => navigation.navigate('Menu' as never)}
         >
           <EditIcon active={false} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate('OrdersHub' as never)}
+        >
+          <TruckIcon active={false} />
         </TouchableOpacity>
       </View>
     </View>
@@ -405,7 +451,7 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     backgroundColor: "#D9534F",
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
     borderWidth: 2,
