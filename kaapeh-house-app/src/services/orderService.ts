@@ -8,6 +8,7 @@ export interface OrderItem {
   size?: string;
   temperature?: string;
   price: number;
+  customizations?: Record<string, any>;
   menu_item?: {
     name: string;
     description?: string;
@@ -22,7 +23,7 @@ export interface Order {
   total: number;
   estimated_time?: string;
   location?: string;
-  customer_status?: string; // "not_left", "on_way", "at_store"
+  customer_status?: string;
   created_at: string;
   order_items?: OrderItem[];
 }
