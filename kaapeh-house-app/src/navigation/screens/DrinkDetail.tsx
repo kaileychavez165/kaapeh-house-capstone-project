@@ -535,7 +535,7 @@ export default function DrinkDetailScreen() {
               } as any);
               Alert.alert(
                 'Success',
-                'Item has been added to cart',
+                'Item has been added to cart.',
                 [{ text: 'OK', style: 'default' }]
               );
             }}
