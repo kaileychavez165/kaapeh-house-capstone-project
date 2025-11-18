@@ -14,7 +14,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
-import { fetchActiveOrders, fetchPastOrders, cancelOrder, updateCustomerStatus, Order } from "../../services/orderService";
+import { cancelOrder, updateCustomerStatus, Order } from "../../services/orderService";
+import { useActiveOrders, usePastOrders, useInvalidateOrders } from "../../hooks/useOrderQueries";
 
 interface MyOrderProps {
     session: Session;
@@ -22,60 +23,71 @@ interface MyOrderProps {
 
 export default function MyOrderScreen({ session }: MyOrderProps) {
     const navigation = useNavigation();
-    const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
-    const [loading, setLoading] = useState(true);
-    const [activeOrders, setActiveOrders] = useState<Order[]>([]);
-    const [pastOrders, setPastOrders] = useState<Order[]>([]);
+    const [activeTab, setActiveTab] = useState<'active' | 'past'>('active'); 
     const [selectedStatuses, setSelectedStatuses] = useState<Record<string, string>>({});
+    
+    // React Query hooks for orders
+    const { data: activeOrders = [], isLoading: activeLoading, refetch } = useActiveOrders(session?.user?.id);
+    const { data: pastOrders = [], isLoading: pastLoading } = usePastOrders(session?.user?.id);
+    const { invalidateActive, invalidatePast } = useInvalidateOrders();
+    
+    const loading = activeTab === 'active' ? activeLoading : pastLoading;
 
+    // Initialize selected statuses when active orders change
     useEffect(() => {
-        if (session) {
-            loadActiveOrders();
-            loadPastOrders();
-        }
-    }, [session]);
-
-    useEffect(() => {
-        if (activeTab === 'past' && pastOrders.length === 0 && !loading) {
-            loadPastOrders();
-        }
-    }, [activeTab]);
-
-    async function loadActiveOrders() {
-        try {
-            setLoading(true);
-            if (!session?.user) throw new Error("No user on the session!");
-
-            const orders = await fetchActiveOrders(session.user.id);
-            setActiveOrders(orders);
-
-            // Initialize selected statuses
+        if (activeOrders.length > 0) {
             const initialStatuses: Record<string, string> = {};
-            orders.forEach((order) => {
+            activeOrders.forEach((order) => {
                 initialStatuses[order.id] = order.customer_status || "not_started";
             });
             setSelectedStatuses(initialStatuses);
-        } catch (error) {
-            console.error("Error loading active orders:", error);
-            // On error, set empty array to show empty state
-            setActiveOrders([]);
-            setSelectedStatuses({});
-        } finally {
-            setLoading(false);
         }
-    }
+    }, [activeOrders]);
 
-    async function loadPastOrders() {
-        try {
-            if (!session?.user) throw new Error("No user on the session!");
+    // Dummy order data for testing
+    const getDummyOrder = (): Order => {
+        const eightMinutesAgo = new Date(Date.now() - 8 * 60000).toISOString();
+        return {
+            id: "dummy-order-3847",
+            customer_id: session?.user?.id || "dummy-user",
+            order_number: "#3847",
+            status: "preparing",
+            total: 7.75,
+            estimated_time: "15-20 min",
+            location: "Main Street Cafe",
+            customer_status: "on_the_way",
+            created_at: eightMinutesAgo,
+            order_items: [
+                {
+                    id: "dummy-item-1",
+                    order_id: "dummy-order-3847",
+                    menu_item_id: "dummy-menu-1",
+                    quantity: 1,
+                    size: "M",
+                    temperature: "hot",
+                    price: 4.50,
+                    menu_item: {
+                        name: "Caramel Latte",
+                        description: "Rich espresso with caramel and steamed milk",
+                    },
+                },
+                {
+                    id: "dummy-item-2",
+                    order_id: "dummy-order-3847",
+                    menu_item_id: "dummy-menu-2",
+                    quantity: 1,
+                    price: 3.25,
+                    menu_item: {
+                        name: "Blueberry Muffin",
+                        description: "Fresh baked blueberry muffin",
+                    },
+                },
+            ],
+        };
+    };
 
-            const orders = await fetchPastOrders(session.user.id);
-            setPastOrders(orders);
-        } catch (error) {
-            console.error("Error loading past orders:", error);
-            setPastOrders([]);
-        }
-    }
+    // For now, add dummy order if no orders found (for testing)
+    const ordersToShow = activeOrders.length > 0 ? activeOrders : [getDummyOrder()];
 
     const handleCancelOrder = async (orderId: string) => {
         Alert.alert(
@@ -92,10 +104,11 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                     onPress: async () => {
                         try {
                             await cancelOrder(orderId);
-                            // Reload active orders to remove the cancelled order
-                            await loadActiveOrders();
-                            // Reload past orders to show the cancelled order
-                            await loadPastOrders();
+                            // Invalidate queries to refetch orders
+                            if (session?.user?.id) {
+                                invalidateActive(session.user.id);
+                                invalidatePast(session.user.id);
+                            }
                             Alert.alert("Order Cancelled", "Your order has been cancelled successfully.");
                         } catch (error: any) {
                             Alert.alert(
@@ -122,11 +135,16 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
             }
 
             await updateCustomerStatus(orderId, status);
+            
+            // Invalidate and refetch orders after status update
+            if (session?.user?.id) {
+                invalidateActive(session.user.id);
+            }
         } catch (error) {
             if (error instanceof Error) {
                 Alert.alert("Error updating status", error.message);
-                // Revert on error
-                loadActiveOrders();
+                // Revert on error by refetching
+                refetch();
             }
         }
     };
@@ -264,11 +282,11 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {loading && activeTab === 'active' ? (
+                    {loading ? (
                         <View style={styles.loadingContainer}>
                             <Text style={styles.loadingText}>Loading orders...</Text>
                         </View>
-                    ) : orders.length === 0 ? (
+                    ) : (activeTab === 'active' ? ordersToShow : pastOrders).length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <MaterialCommunityIcons name="package-variant" size={64} color="#999999" />
                             <Text style={styles.emptyText}>
@@ -282,7 +300,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                         </View>
                     ) : (
                         <>
-                            {orders.map((order) => (
+                            {(activeTab === 'active' ? ordersToShow : pastOrders).map((order) => (
                                 <View key={order.id} style={styles.orderCard}>
                                     {/* Order Header */}
                                     <View style={styles.orderHeader}>
