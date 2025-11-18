@@ -295,7 +295,7 @@ export default function HomeScreen({ session }: HomeScreenProps) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContent}
           >
-            {categories.map((category) => (
+            {categories.map((category: string) => (
               <TouchableOpacity
                 key={category}
                 style={[
