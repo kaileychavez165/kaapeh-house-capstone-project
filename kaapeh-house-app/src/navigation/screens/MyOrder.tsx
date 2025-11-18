@@ -14,8 +14,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
-import { updateCustomerStatus, Order } from "../../services/orderService";
-import { useActiveOrders, useInvalidateOrders } from "../../hooks/useOrderQueries";
+import { cancelOrder, updateCustomerStatus, Order } from "../../services/orderService";
+import { useActiveOrders, usePastOrders, useInvalidateOrders } from "../../hooks/useOrderQueries";
 
 interface MyOrderProps {
     session: Session;
@@ -23,18 +23,22 @@ interface MyOrderProps {
 
 export default function MyOrderScreen({ session }: MyOrderProps) {
     const navigation = useNavigation();
+    const [activeTab, setActiveTab] = useState<'active' | 'past'>('active'); 
     const [selectedStatuses, setSelectedStatuses] = useState<Record<string, string>>({});
     
-    // React Query hook for orders
-    const { data: activeOrders = [], isLoading: loading, refetch } = useActiveOrders(session?.user?.id);
-    const { invalidateActive } = useInvalidateOrders();
+    // React Query hooks for orders
+    const { data: activeOrders = [], isLoading: activeLoading, refetch } = useActiveOrders(session?.user?.id);
+    const { data: pastOrders = [], isLoading: pastLoading } = usePastOrders(session?.user?.id);
+    const { invalidateActive, invalidatePast } = useInvalidateOrders();
+    
+    const loading = activeTab === 'active' ? activeLoading : pastLoading;
 
-    // Initialize selected statuses when orders change
+    // Initialize selected statuses when active orders change
     useEffect(() => {
         if (activeOrders.length > 0) {
             const initialStatuses: Record<string, string> = {};
             activeOrders.forEach((order) => {
-                initialStatuses[order.id] = order.customer_status || "not_left";
+                initialStatuses[order.id] = order.customer_status || "not_started";
             });
             setSelectedStatuses(initialStatuses);
         }
@@ -51,7 +55,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
             total: 7.75,
             estimated_time: "15-20 min",
             location: "Main Street Cafe",
-            customer_status: "on_way",
+            customer_status: "on_the_way",
             created_at: eightMinutesAgo,
             order_items: [
                 {
@@ -85,7 +89,40 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
     // For now, add dummy order if no orders found (for testing)
     const ordersToShow = activeOrders.length > 0 ? activeOrders : [getDummyOrder()];
 
-    const handleStatusChange = async (orderId: string, status: "not_left" | "on_way" | "at_store") => {
+    const handleCancelOrder = async (orderId: string) => {
+        Alert.alert(
+            "Cancel Order",
+            "Are you sure you want to cancel this order?",
+            [
+                {
+                    text: "No",
+                    style: "cancel",
+                },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await cancelOrder(orderId);
+                            // Invalidate queries to refetch orders
+                            if (session?.user?.id) {
+                                invalidateActive(session.user.id);
+                                invalidatePast(session.user.id);
+                            }
+                            Alert.alert("Order Cancelled", "Your order has been cancelled successfully.");
+                        } catch (error: any) {
+                            Alert.alert(
+                                "Error",
+                                error?.message || "Failed to cancel order. Please try again."
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleStatusChange = async (orderId: string, status: "not_started" | "on_the_way" | "arrived") => {
         try {
             setSelectedStatuses((prev) => ({
                 ...prev,
@@ -118,9 +155,54 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
         const diffMs = now.getTime() - orderTime.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        if (diffMins < 1) return "Just now";
+        if (diffMins < 1) return "just now";
         if (diffMins === 1) return "1 min ago";
         return `${diffMins} min ago`;
+    };
+
+    const formatDateTime = (createdAt: string) => {
+        const orderTime = new Date(createdAt);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const orderDate = new Date(orderTime.getFullYear(), orderTime.getMonth(), orderTime.getDate());
+        
+        // Check if the order was today
+        const isToday = orderDate.getTime() === today.getTime();
+        
+        // Format time in 12-hour format
+        let hours = orderTime.getHours();
+        const minutes = orderTime.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        const minutesStr = minutes < 10 ? `0${minutes}` : minutes;
+        const timeString = `${hours}:${minutesStr} ${ampm}`;
+        
+        if (isToday) {
+            return `Placed today, ${timeString}`;
+        }
+        
+        // Check if the order was yesterday
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = orderDate.getTime() === yesterday.getTime();
+        
+        if (isYesterday) {
+            return `Placed yesterday, ${timeString}`;
+        }
+        
+        // Format date
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = monthNames[orderTime.getMonth()];
+        const day = orderTime.getDate();
+        const year = orderTime.getFullYear();
+        
+        // Check if it's the current year
+        if (orderTime.getFullYear() === now.getFullYear()) {
+            return `${month} ${day}, ${timeString}`;
+        }
+        
+        return `Placed ${month} ${day}, ${year}, ${timeString}`;
     };
 
     const getStatusColor = (status: string) => {
@@ -131,6 +213,10 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                 return "#87CEEB";
             case "pending":
                 return "#FFD700";
+            case "completed":
+                return "#90EE90";
+            case "cancelled":
+                return "#FF6B6B";
             default:
                 return "#90EE90";
         }
@@ -144,10 +230,16 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                 return "Ready";
             case "pending":
                 return "Pending";
+            case "completed":
+                return "Completed";
+            case "cancelled":
+                return "Cancelled";
             default:
                 return status;
         }
     };
+
+    const orders = activeTab === 'active' ? activeOrders : pastOrders;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -160,6 +252,31 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
             {/* Main Content */}
             <View style={styles.content}>
+                {/* Tabs */}
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'active' && styles.activeTabButton]}
+                        onPress={() => setActiveTab('active')}
+                    >
+                        <Text
+                            style={[styles.tabButtonText, activeTab === 'active' && styles.activeTabButtonText]}
+                        >
+                            Active Orders
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'past' && styles.activeTabButton]}
+                        onPress={() => setActiveTab('past')}
+                    >
+                        <Text
+                            style={[styles.tabButtonText, activeTab === 'past' && styles.activeTabButtonText]}
+                        >
+                            Past Orders
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
@@ -169,16 +286,21 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                         <View style={styles.loadingContainer}>
                             <Text style={styles.loadingText}>Loading orders...</Text>
                         </View>
-                    ) : ordersToShow.length === 0 ? (
+                    ) : (activeTab === 'active' ? ordersToShow : pastOrders).length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <MaterialCommunityIcons name="package-variant" size={64} color="#999999" />
-                            <Text style={styles.emptyText}>No Active Orders</Text>
-                            <Text style={styles.emptySubtext}>You don't have any active orders at the moment.</Text>
+                            <Text style={styles.emptyText}>
+                                {activeTab === 'active' ? 'No Active Orders' : 'No Past Orders'}
+                            </Text>
+                            <Text style={styles.emptySubtext}>
+                                {activeTab === 'active'
+                                    ? 'You do not have any active orders at the moment.'
+                                    : 'You do not have any past orders.'}
+                            </Text>
                         </View>
                     ) : (
                         <>
-                            <Text style={styles.sectionTitle}>Active Orders</Text>
-                            {ordersToShow.map((order) => (
+                            {(activeTab === 'active' ? ordersToShow : pastOrders).map((order) => (
                                 <View key={order.id} style={styles.orderCard}>
                                     {/* Order Header */}
                                     <View style={styles.orderHeader}>
@@ -192,24 +314,63 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                                     {/* Time Placed */}
                                     <View style={styles.timeRow}>
                                         <MaterialCommunityIcons name="clock-outline" size={16} color="#666666" />
-                                        <Text style={styles.timeText}>Placed {formatTimeAgo(order.created_at)}</Text>
+                                        <Text style={styles.timeText}>
+                                            {activeTab === 'past' || order.status === 'completed' || order.status === 'cancelled'
+                                                ? formatDateTime(order.created_at)
+                                                : `Placed ${formatTimeAgo(order.created_at)}`}
+                                        </Text>
                                     </View>
 
                                     {/* Order Items */}
                                     <View style={styles.itemsContainer}>
-                                        {order.order_items?.map((item, index) => (
-                                            <View key={item.id || index} style={styles.itemRow}>
-                                                <View style={styles.itemDetails}>
-                                                    <Text style={styles.itemName}>
-                                                        {item.quantity}x {item.menu_item?.name || "Item"}
+                                        {order.order_items?.map((item, index) => {
+                                            // Format customizations for display (excluding size and temperature)
+                                            const customizations = item.customizations || {};
+                                            const otherCustomizations: Record<string, string> = {};
+                                            
+                                            Object.entries(customizations).forEach(([key, value]) => {
+                                                if (key !== 'size' && key !== 'temperature' && value) {
+                                                    otherCustomizations[key] = value;
+                                                }
+                                            });
+
+                                            // Format other customizations: "Milk: 2% Milk, Syrup: Vanilla"
+                                            const formatCustomizations = (customizations: Record<string, string>): string => {
+                                                if (Object.keys(customizations).length === 0) {
+                                                    return '';
+                                                }
+                                                return Object.entries(customizations)
+                                                    .map(([category, name]) => `${category}: ${name}`)
+                                                    .join(', ');
+                                            };
+
+                                            return (
+                                                <View key={item.id || index} style={styles.itemRow}>
+                                                    <View style={styles.itemDetails}>
+                                                        <Text style={styles.itemName}>
+                                                            {item.quantity}x {item.menu_item?.name || "Item"}
+                                                        </Text>
+                                                        <View style={styles.itemDescriptionContainer}>
+                                                            {/* Temperature and Size */}
+                                                            {(item.temperature || item.size) && (
+                                                                <Text style={styles.itemDescription}>
+                                                                    {[item.temperature, item.size].filter(Boolean).join(' • ')}
+                                                                </Text>
+                                                            )}
+                                                            {/* Customizations */}
+                                                            {Object.keys(otherCustomizations).length > 0 && (
+                                                                <Text style={styles.itemCustomizations}>
+                                                                    {formatCustomizations(otherCustomizations)}
+                                                                </Text>
+                                                            )}
+                                                        </View>
+                                                    </View>
+                                                    <Text style={styles.itemPrice}>
+                                                        ${(item.price * item.quantity).toFixed(2)}
                                                     </Text>
-                                                    {item.size && (
-                                                        <Text style={styles.itemSize}>Size: {item.size}</Text>
-                                                    )}
                                                 </View>
-                                                <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
-                                            </View>
-                                        ))}
+                                            );
+                                        })}
                                     </View>
 
                                     {/* Total */}
@@ -220,83 +381,100 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
                                     {/* Estimated Time and Location */}
                                     <View style={styles.infoRow}>
-                                        <View style={styles.infoItem}>
+                                        {/* <View style={styles.infoItem}>
                                             <MaterialCommunityIcons name="clock-outline" size={16} color="#2B2B2B" />
                                             <Text style={styles.infoText}>
                                                 Estimated: {order.estimated_time || "15-20 min"}
                                             </Text>
-                                        </View>
+                                        </View> */}
                                         <View style={styles.infoItem}>
-                                            <MaterialCommunityIcons name="map-marker-outline" size={16} color="#2B2B2B" />
-                                            <Text style={styles.infoText}>{order.location || "Main Street Cafe"}</Text>
+                                            <MaterialCommunityIcons name="map-marker-outline" size={16} color="#666666" />
+                                            <View>
+                                                <Text style={styles.locationName}>Kaapeh House, 309 America Drive Suite G, Brownsville, TX 78526</Text>
+                                            </View>
                                         </View>
                                     </View>
 
-                                    {/* Status Selection */}
-                                    <View style={styles.statusSection}>
-                                        <Text style={styles.statusPrompt}>LET US KNOW YOUR STATUS</Text>
-                                        <View style={styles.statusButtonsContainer}>
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.statusButton,
-                                                    selectedStatuses[order.id] === "not_left" && styles.statusButtonSelected,
-                                                ]}
-                                                onPress={() => handleStatusChange(order.id, "not_left")}
-                                            >
-                                                <Text
+                                    {/* Status Selection - Only show for active orders */}
+                                    {activeTab === 'active' && (
+                                        <View style={styles.statusSection}>
+                                            <Text style={styles.statusPrompt}>LET US KNOW YOUR STATUS</Text>
+                                            <View style={styles.statusButtonsContainer}>
+                                                <TouchableOpacity
                                                     style={[
-                                                        styles.statusButtonText,
-                                                        selectedStatuses[order.id] === "not_left" && styles.statusButtonTextSelected,
+                                                        styles.statusButton,
+                                                        selectedStatuses[order.id] === "not_started" && styles.statusButtonSelected,
                                                     ]}
+                                                    onPress={() => handleStatusChange(order.id, "not_started")}
                                                 >
-                                                    I haven't left yet
-                                                </Text>
-                                                {selectedStatuses[order.id] === "not_left" && (
-                                                    <MaterialCommunityIcons name="check" size={20} color="#acc18a" />
-                                                )}
-                                            </TouchableOpacity>
+                                                    <Text
+                                                        style={[
+                                                            styles.statusButtonText,
+                                                            selectedStatuses[order.id] === "not_started" && styles.statusButtonTextSelected,
+                                                        ]}
+                                                    >
+                                                        I haven't left yet
+                                                    </Text>
+                                                    {selectedStatuses[order.id] === "not_started" && (
+                                                        <MaterialCommunityIcons name="check" size={20} color="#acc18a" />
+                                                    )}
+                                                </TouchableOpacity>
 
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.statusButton,
-                                                    selectedStatuses[order.id] === "on_way" && styles.statusButtonSelected,
-                                                ]}
-                                                onPress={() => handleStatusChange(order.id, "on_way")}
-                                            >
-                                                <Text
+                                                <TouchableOpacity
                                                     style={[
-                                                        styles.statusButtonText,
-                                                        selectedStatuses[order.id] === "on_way" && styles.statusButtonTextSelected,
+                                                        styles.statusButton,
+                                                        selectedStatuses[order.id] === "on_the_way" && styles.statusButtonSelected,
                                                     ]}
+                                                    onPress={() => handleStatusChange(order.id, "on_the_way")}
                                                 >
-                                                    I'm on my way
-                                                </Text>
-                                                {selectedStatuses[order.id] === "on_way" && (
-                                                    <MaterialCommunityIcons name="check" size={20} color="#acc18a" />
-                                                )}
-                                            </TouchableOpacity>
+                                                    <Text
+                                                        style={[
+                                                            styles.statusButtonText,
+                                                            selectedStatuses[order.id] === "on_the_way" && styles.statusButtonTextSelected,
+                                                        ]}
+                                                    >
+                                                        I'm on my way
+                                                    </Text>
+                                                    {selectedStatuses[order.id] === "on_the_way" && (
+                                                        <MaterialCommunityIcons name="check" size={20} color="#acc18a" />
+                                                    )}
+                                                </TouchableOpacity>
 
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.statusButton,
-                                                    selectedStatuses[order.id] === "at_store" && styles.statusButtonSelected,
-                                                ]}
-                                                onPress={() => handleStatusChange(order.id, "at_store")}
-                                            >
-                                                <Text
+                                                <TouchableOpacity
                                                     style={[
-                                                        styles.statusButtonText,
-                                                        selectedStatuses[order.id] === "at_store" && styles.statusButtonTextSelected,
+                                                        styles.statusButton,
+                                                        selectedStatuses[order.id] === "arrived" && styles.statusButtonSelected,
                                                     ]}
+                                                    onPress={() => handleStatusChange(order.id, "arrived")}
                                                 >
-                                                    I'm at the store
-                                                </Text>
-                                                {selectedStatuses[order.id] === "at_store" && (
-                                                    <MaterialCommunityIcons name="check" size={20} color="#acc18a" />
-                                                )}
+                                                    <Text
+                                                        style={[
+                                                            styles.statusButtonText,
+                                                            selectedStatuses[order.id] === "arrived" && styles.statusButtonTextSelected,
+                                                        ]}
+                                                    >
+                                                        I'm at the store
+                                                    </Text>
+                                                    {selectedStatuses[order.id] === "arrived" && (
+                                                        <MaterialCommunityIcons name="check" size={20} color="#acc18a" />
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    )}
+
+                                    {/* Cancel Order Button - Only show for active orders that aren't completed/cancelled */}
+                                    {activeTab === 'active' && order.status !== 'completed' && order.status !== 'cancelled' && (
+                                        <View style={styles.cancelButtonContainer}>
+                                            <TouchableOpacity
+                                                style={styles.cancelButton}
+                                                onPress={() => handleCancelOrder(order.id)}
+                                            >
+                                                <MaterialCommunityIcons name="close-circle-outline" size={20} color="#FF6B6B" />
+                                                <Text style={styles.cancelButtonText}>Cancel Order</Text>
                                             </TouchableOpacity>
                                         </View>
-                                    </View>
+                                    )}
                                 </View>
                             ))}
                         </>
@@ -335,12 +513,44 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         paddingTop: 32,
-        paddingHorizontal: 24,
+    },
+    tabContainer: {
+        flexDirection: "row",
+        backgroundColor: "#FFFFFF",
+        marginHorizontal: 24,
+        marginTop: 16,
+        marginBottom: 20,
+        borderRadius: 12,
+        padding: 4,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    tabButton: {
+        flex: 1,
+        alignItems: "center",
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    activeTabButton: {
+        backgroundColor: "#acc18a",
+    },
+    tabButtonText: {
+        fontSize: 15,
+        fontWeight: "600",
+        color: "#687280",
+    },
+    activeTabButtonText: {
+        color: "#FFFFFF",
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
+        paddingHorizontal: 24,
+        paddingTop: 20,
         paddingBottom: 20,
     },
     sectionTitle: {
@@ -414,10 +624,17 @@ const styles = StyleSheet.create({
         color: "#2B2B2B",
         marginBottom: 4,
     },
-    itemSize: {
+    itemDescriptionContainer: {
+        marginTop: 4,
+    },
+    itemDescription: {
         fontSize: 14,
         color: "#666666",
-        marginLeft: 16,
+        marginBottom: 4,
+    },
+    itemCustomizations: {
+        fontSize: 13,
+        color: "#666666",
     },
     itemPrice: {
         fontSize: 16,
@@ -448,13 +665,22 @@ const styles = StyleSheet.create({
     },
     infoItem: {
         flexDirection: "row",
-        alignItems: "center",
+        alignItems: "flex-start",
         marginBottom: 8,
+        marginTop: 3,
     },
     infoText: {
         fontSize: 14,
         color: "#2B2B2B",
         marginLeft: 8,
+    },
+    locationName: {
+        fontSize: 14,
+        color: "#666666",
+        marginTop: -2,
+        marginLeft: 7,
+        marginRight: 22,
+        marginBottom: 0,
     },
     statusSection: {
         paddingTop: 20,
@@ -469,7 +695,7 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     statusButtonsContainer: {
-        gap: 12,
+        // gap: 12, // React Native doesn't support gap, using marginBottom on buttons instead
     },
     statusButton: {
         flexDirection: "row",
@@ -481,6 +707,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         borderWidth: 1,
         borderColor: "#E5E5E5",
+        marginBottom: 12,
     },
     statusButtonSelected: {
         backgroundColor: "#eff6e7",
@@ -493,6 +720,29 @@ const styles = StyleSheet.create({
     },
     statusButtonTextSelected: {
         color: "#2B2B2B",
+    },
+    cancelButtonContainer: {
+        marginTop: 20,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: "#E5E5E5",
+    },
+    cancelButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1,
+        borderColor: "#FF6B6B",
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#FF6B6B",
+        marginLeft: 8,
     },
     loadingContainer: {
         flex: 1,

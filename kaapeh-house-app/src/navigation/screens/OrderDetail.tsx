@@ -9,11 +9,16 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Alert,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCart, CartItem } from '../../context/CartContext';
 import BottomNavigationBar from '../../components/BottomNavigationBar';
+import { createOrder, CreateOrderItem } from '../../services/orderService';
+import { supabase } from '../../../utils/supabase';
 
 // Define the route params interface (optional, for backward compatibility)
 type RootStackParamList = {
@@ -76,7 +81,7 @@ const getImageSource = (item: CartItem) => {
 export default function OrderDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<OrderDetailRouteProp>();
-  const { items: cartItemsFromContext, setQuantity, removeItem } = useCart();
+  const { items: cartItemsFromContext, setQuantity, removeItem, clear } = useCart();
   // Use cart items from context, fallback to route params if provided
   const cartItems = route.params?.cartItems || cartItemsFromContext;
   
@@ -85,6 +90,9 @@ export default function OrderDetailScreen() {
   );
   const [selectedDeliveryTime, setSelectedDeliveryTime] = useState('5 minutes');
   const [showDeliveryDropdown, setShowDeliveryDropdown] = useState(false);
+  const [specialInstructions, setSpecialInstructions] = useState<string>('');
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   // Sync quantities when cartItems change
   React.useEffect(() => {
@@ -134,6 +142,82 @@ export default function OrderDetailScreen() {
     
     // Update cart context
     setQuantity(item.id, updatedQuantity, { size: item.size, temperature: item.temperature });
+  };
+
+  const handlePlaceOrder = async () => {
+    // Check if cart is empty
+    if (cartItems.length === 0) {
+      Alert.alert('Empty Cart', 'Please add items to your cart before placing an order.');
+      return;
+    }
+
+    // Get current user
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.user) {
+      Alert.alert('Authentication Error', 'Please log in to place an order.');
+      return;
+    }
+
+    setIsPlacingOrder(true);
+
+    try {
+      // Transform cart items to CreateOrderItem format
+      const orderItems: CreateOrderItem[] = cartItems.map((item) => {
+        const itemKey = getItemKey(item);
+        const quantity = quantities[itemKey] || item.quantity || 1;
+        
+        // Combine size, temperature, and customizations into a single customizations object
+        const customizations: any = {};
+        if (item.size) customizations.size = item.size;
+        if (item.temperature) customizations.temperature = item.temperature;
+        if (item.customizations) {
+          Object.assign(customizations, item.customizations);
+        }
+
+        return {
+          menu_item_id: item.id,
+          quantity: quantity,
+          price_at_time: item.price,
+          customizations: Object.keys(customizations).length > 0 ? customizations : undefined,
+        };
+      });
+
+      // Create the order
+      const order = await createOrder({
+        customer_id: session.user.id,
+        cart_items: orderItems,
+        total_amount: total,
+        special_instructions: specialInstructions || undefined,
+      });
+
+      // Clear the cart
+      clear();
+
+      // Show success message
+      Alert.alert(
+        'Order Placed!',
+        `Your order has been placed successfully. Your order ID is: #${order.order_number}`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate to orders screen or home
+              navigation.navigate('MyOrder' as never);
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error placing order:', error);
+      Alert.alert(
+        'Order Failed',
+        error?.message || 'Failed to place order. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -203,10 +287,40 @@ export default function OrderDetailScreen() {
             <Text style={styles.pickupAddressName}>Kaapeh House</Text>
             <Text style={styles.pickupAddressDetails}>309 America Drive Suite G, Brownsville, TX 78526</Text>
             
-            <TouchableOpacity style={styles.addNoteButton}>
+            <TouchableOpacity 
+              style={styles.addNoteButton}
+              onPress={() => setShowNoteInput(!showNoteInput)}
+            >
               <MaterialCommunityIcons name="note-text-outline" size={20} color="#666666" />
-              <Text style={styles.addNoteText}>Add Note</Text>
+              <Text style={styles.addNoteText}>
+                {specialInstructions ? 'Edit Note' : 'Add Note'}
+              </Text>
             </TouchableOpacity>
+            {showNoteInput && (
+              <View style={styles.noteInputContainer}>
+                <Text style={styles.noteInputLabel}>Special Instructions</Text>
+                <TextInput
+                  style={styles.noteInput}
+                  placeholder="Add any special instructions..."
+                  placeholderTextColor="#999999"
+                  value={specialInstructions}
+                  onChangeText={setSpecialInstructions}
+                  multiline
+                  numberOfLines={3}
+                />
+                <TouchableOpacity
+                  style={styles.saveNoteButton}
+                  onPress={() => setShowNoteInput(false)}
+                >
+                  <Text style={styles.saveNoteButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {specialInstructions && !showNoteInput && (
+              <View style={styles.noteDisplayContainer}>
+                <Text style={styles.noteDisplayText}>{specialInstructions}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -313,8 +427,19 @@ export default function OrderDetailScreen() {
 
         {/* Order Button */}
         <View style={styles.orderButtonContainer}>
-          <TouchableOpacity style={styles.orderButton}>
-            <Text style={styles.orderButtonText}>Order</Text>
+          <TouchableOpacity 
+            style={[styles.orderButton, isPlacingOrder && styles.orderButtonDisabled]}
+            onPress={handlePlaceOrder}
+            disabled={isPlacingOrder || cartItems.length === 0}
+          >
+            {isPlacingOrder ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#FFFFFF" size="small" style={{ marginRight: 8 }} />
+                <Text style={styles.orderButtonText}>Placing Order...</Text>
+              </View>
+            ) : (
+              <Text style={styles.orderButtonText}>Order</Text>
+            )}
           </TouchableOpacity>
         </View>
         </ScrollView>
@@ -383,6 +508,8 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   selectedPickupText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   dropdownContainer: {
@@ -645,5 +772,64 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  noteInputContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  noteInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2B2B2B',
+    marginBottom: 8,
+  },
+  noteInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#2B2B2B',
+    backgroundColor: '#F9F9F9',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  saveNoteButton: {
+    backgroundColor: '#acc18a',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignSelf: 'flex-end',
+  },
+  saveNoteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  noteDisplayContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  noteDisplayText: {
+    fontSize: 14,
+    color: '#2B2B2B',
+    lineHeight: 20,
+  },
+  orderButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
