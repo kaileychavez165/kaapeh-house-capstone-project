@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
-import { cancelOrder, updateCustomerStatus, Order } from "../../services/orderService";
+import { cancelOrder, updateCustomerStatus, Order, OrderItem } from "../../services/orderService";
 import { useActiveOrders, usePastOrders, useInvalidateOrders } from "../../hooks/useOrderQueries";
 
 interface MyOrderProps {
@@ -37,7 +37,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
     useEffect(() => {
         if (activeOrders.length > 0) {
             const initialStatuses: Record<string, string> = {};
-            activeOrders.forEach((order) => {
+            activeOrders.forEach((order: Order) => {
                 initialStatuses[order.id] = order.customer_status || "not_started";
             });
             setSelectedStatuses(initialStatuses);
@@ -300,7 +300,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                         </View>
                     ) : (
                         <>
-                            {(activeTab === 'active' ? ordersToShow : pastOrders).map((order) => (
+                            {(activeTab === 'active' ? ordersToShow : pastOrders).map((order: Order) => (
                                 <View key={order.id} style={styles.orderCard}>
                                     {/* Order Header */}
                                     <View style={styles.orderHeader}>
@@ -323,14 +323,15 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
                                     {/* Order Items */}
                                     <View style={styles.itemsContainer}>
-                                        {order.order_items?.map((item, index) => {
+                                        {order.order_items?.map((item: OrderItem, index: number) => {
                                             // Format customizations for display (excluding size and temperature)
                                             const customizations = item.customizations || {};
                                             const otherCustomizations: Record<string, string> = {};
                                             
                                             Object.entries(customizations).forEach(([key, value]) => {
                                                 if (key !== 'size' && key !== 'temperature' && value) {
-                                                    otherCustomizations[key] = value;
+                                                    // Convert value to string if it's not already
+                                                    otherCustomizations[key] = typeof value === 'string' ? value : String(value);
                                                 }
                                             });
 
