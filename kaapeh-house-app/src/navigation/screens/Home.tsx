@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,8 +19,9 @@ import { useNavigation } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import BottomNavigationBar from '../../components/BottomNavigationBar';
 import { Session } from '@supabase/supabase-js';
-import { fetchMenuItems, fetchMenuItemsByCategory, fetchMenuCategories, searchMenuItems, MenuItem } from '../../services/menuService';
-import { fetchUserProfile, UserProfile } from '../../services/userService';
+import { MenuItem } from '../../services/menuService';
+import { useMenuCategories, useMenuItems, useMenuItemsByCategory, useSearchMenuItems } from '../../hooks/useMenuQueries';
+import { useUserProfile } from '../../hooks/useUserQueries';
 
 
 const { width } = Dimensions.get('window');
@@ -45,10 +46,37 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [searchQuery, setSearchQuery] = useState('');
-  const [menuItems, setMenuItems] = useState<MenuItemDisplay[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // React Query hooks
+  const { data: categories = [], isLoading: categoriesLoading } = useMenuCategories();
+  const { data: userProfile, isLoading: profileLoading } = useUserProfile(session?.user?.id);
+  
+  // Menu items query - depends on category and search
+  const shouldSearch = searchQuery.trim().length > 0;
+  const { data: searchResults, isLoading: searchLoading } = useSearchMenuItems(
+    searchQuery,
+    true // exclude admin categories
+  );
+  
+  const { data: allMenuItems, isLoading: allItemsLoading } = useMenuItems(true);
+  const { data: categoryMenuItems, isLoading: categoryLoading } = useMenuItemsByCategory(
+    selectedCategory,
+    true
+  );
+
+  // Determine which data to use and loading state
+  const menuItemsData = useMemo(() => {
+    if (shouldSearch) {
+      return searchResults || [];
+    }
+    if (selectedCategory === 'All Items') {
+      return allMenuItems || [];
+    }
+    return categoryMenuItems || [];
+  }, [shouldSearch, searchResults, selectedCategory, allMenuItems, categoryMenuItems]);
+
+  const loading = categoriesLoading || 
+    (shouldSearch ? searchLoading : (selectedCategory === 'All Items' ? allItemsLoading : categoryLoading));
 
   // Extract first name from user profile
   const getFirstName = () => {
@@ -61,11 +89,6 @@ export default function HomeScreen({ session }: HomeScreenProps) {
     return 'User';
   };
 
-  // Load initial data
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
   // Handle Android hardware back button
   useEffect(() => {
     const backAction = () => {
@@ -77,93 +100,6 @@ export default function HomeScreen({ session }: HomeScreenProps) {
 
     return () => backHandler.remove();
   }, []);
-
-  // Load menu items when category changes
-  useEffect(() => {
-    loadMenuItems();
-  }, [selectedCategory]);
-
-  // Search when search query changes
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      performSearch();
-    } else {
-      loadMenuItems();
-    }
-  }, [searchQuery]);
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Loading initial data...');
-      
-      // Fetch categories and menu items in parallel (exclude admin categories for customers)
-      const [categoriesData, menuItemsData] = await Promise.all([
-        fetchMenuCategories(),
-        fetchMenuItems(true) // Exclude admin categories
-      ]);
-      
-      // Fetch user profile separately if session exists
-      let profileData: UserProfile | null = null;
-      if (session?.user?.id) {
-        try {
-          profileData = await fetchUserProfile(session.user.id);
-        } catch (error) {
-          console.error('❌ Error fetching user profile:', error);
-          // Don't throw error for profile fetch failure, just continue
-        }
-      }
-      
-      console.log('📊 Categories loaded:', categoriesData);
-      console.log('🍽️ Menu items loaded:', menuItemsData.length, 'items');
-      console.log('👤 User profile loaded:', profileData ? 'Yes' : 'No');
-      
-      setCategories(categoriesData);
-      setMenuItems(convertToMenuItemDisplay(menuItemsData));
-      setUserProfile(profileData);
-    } catch (error) {
-      console.error('❌ Error loading initial data:', error);
-      Alert.alert('Error', 'Failed to load menu data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMenuItems = async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Loading menu items for category:', selectedCategory);
-      
-      let data: MenuItem[];
-      
-      if (selectedCategory === 'All Items') {
-        data = await fetchMenuItems(true); // Exclude admin categories
-      } else {
-        data = await fetchMenuItemsByCategory(selectedCategory, true); // Exclude admin categories
-      }
-      
-      console.log('🍽️ Menu items loaded for category:', data.length, 'items');
-      setMenuItems(convertToMenuItemDisplay(data));
-    } catch (error) {
-      console.error('❌ Error loading menu items:', error);
-      Alert.alert('Error', 'Failed to load menu items. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const performSearch = async () => {
-    try {
-      setLoading(true);
-      const data = await searchMenuItems(searchQuery, true); // Exclude admin categories
-      setMenuItems(convertToMenuItemDisplay(data));
-    } catch (error) {
-      console.error('Error searching menu items:', error);
-      Alert.alert('Error', 'Search failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Helper function to validate if a string is a valid URL
   const isValidImageUrl = (url: string | null | undefined): boolean => {
@@ -338,8 +274,8 @@ export default function HomeScreen({ session }: HomeScreenProps) {
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading menu items...</Text>
             </View>
-          ) : menuItems.length > 0 ? (
-            menuItems.map((item) => renderMenuItemCard(item))
+          ) : menuItemsData.length > 0 ? (
+            convertToMenuItemDisplay(menuItemsData).map((item) => renderMenuItemCard(item))
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No Items</Text>

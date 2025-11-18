@@ -267,7 +267,7 @@ export default function OrderDetailScreen() {
               <Text style={styles.emptyCartSubtext}>Add some items to get started</Text>
               <TouchableOpacity 
                 style={styles.shopNowButton}
-                onPress={() => navigation.goBack()}
+                onPress={() => navigation.navigate('Home' as never)}
               >
                 <Text style={styles.shopNowButtonText}>Shop Now</Text>
               </TouchableOpacity>

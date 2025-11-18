@@ -3,9 +3,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { AppState } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase, getRememberMe, clearSessionOnAppClose } from '../utils/supabase';
 import { Navigation } from './navigation';
 import { CartProvider } from './context/CartContext';
+
+// Create a QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes default
+      gcTime: 10 * 60 * 1000, // 10 minutes default (formerly cacheTime)
+      retry: 1, // Only retry once on failure
+      refetchOnWindowFocus: false, // Don't refetch on window focus in React Native
+    },
+  },
+});
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -96,12 +109,14 @@ export function App() {
 
   // Always use Navigation component, pass session and pending reset password as parameters
   return (
-    <CartProvider>
-      <Navigation 
-        session={session} 
-        pendingResetPassword={pendingResetPassword}
-        onClearPendingResetPassword={() => setPendingResetPassword(null)}
-      />
-    </CartProvider>
+    <QueryClientProvider client={queryClient}>
+      <CartProvider>
+        <Navigation 
+          session={session} 
+          pendingResetPassword={pendingResetPassword}
+          onClearPendingResetPassword={() => setPendingResetPassword(null)}
+        />
+      </CartProvider>
+    </QueryClientProvider>
   );
 }

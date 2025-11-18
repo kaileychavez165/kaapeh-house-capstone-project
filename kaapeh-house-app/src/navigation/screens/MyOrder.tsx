@@ -14,7 +14,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
-import { fetchActiveOrders, updateCustomerStatus, Order } from "../../services/orderService";
+import { updateCustomerStatus, Order } from "../../services/orderService";
+import { useActiveOrders, useInvalidateOrders } from "../../hooks/useOrderQueries";
 
 interface MyOrderProps {
     session: Session;
@@ -22,15 +23,22 @@ interface MyOrderProps {
 
 export default function MyOrderScreen({ session }: MyOrderProps) {
     const navigation = useNavigation();
-    const [loading, setLoading] = useState(true);
-    const [orders, setOrders] = useState<Order[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<Record<string, string>>({});
+    
+    // React Query hook for orders
+    const { data: activeOrders = [], isLoading: loading, refetch } = useActiveOrders(session?.user?.id);
+    const { invalidateActive } = useInvalidateOrders();
 
+    // Initialize selected statuses when orders change
     useEffect(() => {
-        if (session) {
-            loadOrders();
+        if (activeOrders.length > 0) {
+            const initialStatuses: Record<string, string> = {};
+            activeOrders.forEach((order) => {
+                initialStatuses[order.id] = order.customer_status || "not_left";
+            });
+            setSelectedStatuses(initialStatuses);
         }
-    }, [session]);
+    }, [activeOrders]);
 
     // Dummy order data for testing
     const getDummyOrder = (): Order => {
@@ -74,32 +82,8 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
         };
     };
 
-    async function loadOrders() {
-        try {
-            setLoading(true);
-            if (!session?.user) throw new Error("No user on the session!");
-
-            const activeOrders = await fetchActiveOrders(session.user.id);
-            
-            // For now, add dummy order if no orders found (for testing)
-            const ordersToShow = activeOrders.length > 0 ? activeOrders : [getDummyOrder()];
-            setOrders(ordersToShow);
-
-            // Initialize selected statuses
-            const initialStatuses: Record<string, string> = {};
-            ordersToShow.forEach((order) => {
-                initialStatuses[order.id] = order.customer_status || "not_left";
-            });
-            setSelectedStatuses(initialStatuses);
-        } catch (error) {
-            // On error, show dummy order for testing
-            const dummyOrder = getDummyOrder();
-            setOrders([dummyOrder]);
-            setSelectedStatuses({ [dummyOrder.id]: dummyOrder.customer_status || "on_way" });
-        } finally {
-            setLoading(false);
-        }
-    }
+    // For now, add dummy order if no orders found (for testing)
+    const ordersToShow = activeOrders.length > 0 ? activeOrders : [getDummyOrder()];
 
     const handleStatusChange = async (orderId: string, status: "not_left" | "on_way" | "at_store") => {
         try {
@@ -114,11 +98,16 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
             }
 
             await updateCustomerStatus(orderId, status);
+            
+            // Invalidate and refetch orders after status update
+            if (session?.user?.id) {
+                invalidateActive(session.user.id);
+            }
         } catch (error) {
             if (error instanceof Error) {
                 Alert.alert("Error updating status", error.message);
-                // Revert on error
-                loadOrders();
+                // Revert on error by refetching
+                refetch();
             }
         }
     };
@@ -180,7 +169,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                         <View style={styles.loadingContainer}>
                             <Text style={styles.loadingText}>Loading orders...</Text>
                         </View>
-                    ) : orders.length === 0 ? (
+                    ) : ordersToShow.length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <MaterialCommunityIcons name="package-variant" size={64} color="#999999" />
                             <Text style={styles.emptyText}>No Active Orders</Text>
@@ -189,7 +178,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                     ) : (
                         <>
                             <Text style={styles.sectionTitle}>Active Orders</Text>
-                            {orders.map((order) => (
+                            {ordersToShow.map((order) => (
                                 <View key={order.id} style={styles.orderCard}>
                                     {/* Order Header */}
                                     <View style={styles.orderHeader}>
