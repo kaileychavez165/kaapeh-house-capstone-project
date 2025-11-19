@@ -11,13 +11,14 @@ import {
   Alert,
   StatusBar,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, Circle, Path, Rect } from 'react-native-svg';
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../../utils/supabase";
-
+import { useDashboardData } from "../../hooks/useDashboardQueries";
 const { width, height } = Dimensions.get('window');
 
 // Navigation Icons
@@ -87,25 +88,26 @@ const AdminHome = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigation = useNavigation();
 
-  // Weekly sales data
-  const weeklyData = [
-    { day: 'Mon', sales: 550 },
-    { day: 'Tue', sales: 650 },
-    { day: 'Wed', sales: 220 },
-    { day: 'Thur', sales: 580 },
-    { day: 'Fri', sales: 480 },
-    { day: 'Sat', sales: 600 },
-    { day: 'Sun', sales: 700 },
-  ];
+  // Fetch dashboard data from Supabase
+  const { data: dashboardData, isLoading, isError, error } = useDashboardData();
 
-  const maxSales = Math.max(...weeklyData.map(d => d.sales));
+  // Extract data with fallbacks
+  const metrics = dashboardData?.metrics || {
+    todaysSales: 0,
+    ordersToday: 0,
+    averagePerOrder: 0,
+  };
 
-  // Top items data
-  const topItems = [
-    { name: 'Caffe Mocha', sold: 12, rank: 1 },
-    { name: 'Flat White', sold: 10, rank: 2 },
-    { name: 'Iced Latte', sold: 9, rank: 3 },
-  ];
+  const weeklyData = dashboardData?.weeklySales || [];
+  const topItems = dashboardData?.topItems || [];
+
+  // Sort weekly data by sales amount (highest to lowest)
+  const sortedWeeklyData = [...weeklyData].sort((a, b) => b.sales - a.sales);
+
+  // Calculate max sales for chart scaling
+  const maxSales = sortedWeeklyData.length > 0 
+    ? Math.max(...sortedWeeklyData.map(d => d.sales), 1) 
+    : 1;
 
 
 
@@ -143,68 +145,103 @@ const AdminHome = () => {
 
       {/* Main Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Key Metrics */}
-        <View style={styles.metricsContainer}>
-          <View style={[styles.metricCard, styles.salesCard]}>
-            <Text style={styles.metricLabel}>Today's Sales</Text>
-            <Text style={styles.metricValue}>$147.47</Text>
+        {/* Loading State */}
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#20B2AA" />
+            <Text style={styles.loadingText}>Loading dashboard data...</Text>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Orders Today</Text>
-            <Text style={styles.metricValue}>47</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Avg. Per Order</Text>
-            <Text style={styles.metricValue}>$14.03</Text>
-          </View>
-        </View>
+        )}
 
-        {/* Weekly Sales Chart */}
-        <View style={styles.chartSection}>
-          <Text style={styles.sectionTitle}>Weekly Sales</Text>
-          <View style={styles.chartContainer}>
-            <View style={styles.yAxis}>
-              <Text style={styles.yAxisLabel}>$1000</Text>
-              <Text style={styles.yAxisLabel}>$800</Text>
-              <Text style={styles.yAxisLabel}>$600</Text>
-              <Text style={styles.yAxisLabel}>$400</Text>
-              <Text style={styles.yAxisLabel}>$200</Text>
-              <Text style={styles.yAxisLabel}>$0</Text>
-            </View>
-            <View style={styles.chartArea}>
-              {weeklyData.map((item, index) => {
-                const barHeight = (item.sales / maxSales) * 120;
-                return (
-                  <View key={index} style={styles.barContainer}>
-                    <View style={styles.barWrapper}>
-                      <LinearGradient
-                        colors={['#20B2AA', '#87CEEB']}
-                        style={[styles.bar, { height: barHeight }]}
-                      />
-                    </View>
-                    <Text style={styles.barLabel}>{item.day}</Text>
-                  </View>
-                );
-              })}
-            </View>
+        {/* Error State */}
+        {isError && (
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons name="alert-circle" size={48} color="#D9534F" />
+            <Text style={styles.errorText}>Error loading dashboard data</Text>
+            <Text style={styles.errorSubtext}>
+              {error instanceof Error ? error.message : 'Please try again later'}
+            </Text>
           </View>
-        </View>
-        
-        {/* Top Items */}
-        <View style={styles.topItemsSection}>
-          <Text style={styles.sectionTitle}>Top Items Today</Text>
-          <View style={styles.topItemsList}>
-            {topItems.map((item, index) => (
-              <View key={index} style={styles.topItemCard}>
-                <View style={styles.rankBadge}>
-                  <Text style={styles.rankNumber}>{item.rank}</Text>
-                </View>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemSold}>{item.sold} sold</Text>
+        )}
+
+        {/* Dashboard Content */}
+        {!isLoading && !isError && (
+          <>
+            {/* Key Metrics */}
+            <View style={styles.metricsContainer}>
+              <View style={[styles.metricCard, styles.salesCard]}>
+                <Text style={styles.metricLabel}>Today's Sales</Text>
+                <Text style={styles.metricValue}>${metrics.todaysSales.toFixed(2)}</Text>
               </View>
-            ))}
-          </View>
-        </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Orders Today</Text>
+                <Text style={styles.metricValue}>{metrics.ordersToday}</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Avg. Per Order</Text>
+                <Text style={styles.metricValue}>${metrics.averagePerOrder.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            {/* Weekly Sales Chart */}
+            <View style={styles.chartSection}>
+              <Text style={styles.sectionTitle}>Weekly Sales</Text>
+              <View style={styles.chartContainer}>
+                <View style={styles.yAxis}>
+                  <Text style={styles.yAxisLabel}>${Math.ceil(maxSales * 0.8).toFixed(0)}</Text>
+                  <Text style={styles.yAxisLabel}>${Math.ceil(maxSales * 0.6).toFixed(0)}</Text>
+                  <Text style={styles.yAxisLabel}>${Math.ceil(maxSales * 0.4).toFixed(0)}</Text>
+                  <Text style={styles.yAxisLabel}>${Math.ceil(maxSales * 0.2).toFixed(0)}</Text>
+                  <Text style={styles.yAxisLabel}>$0</Text>
+                </View>
+                <View style={styles.chartArea}>
+                  {sortedWeeklyData.length > 0 ? (
+                    sortedWeeklyData.map((item, index) => {
+                      const barHeight = (item.sales / maxSales) * 120;
+                      return (
+                        <View key={`${item.date}-${index}`} style={styles.barContainer}>
+                          <View style={styles.barWrapper}>
+                            <LinearGradient
+                              colors={['#20B2AA', '#87CEEB']}
+                              style={[styles.bar, { height: Math.max(barHeight, 4) }]}
+                            />
+                          </View>
+                          <Text style={styles.barLabel}>{item.day}</Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyStateText}>No sales data available</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+            
+            {/* Top Items */}
+            <View style={styles.topItemsSection}>
+              <Text style={styles.sectionTitle}>Top Items Today</Text>
+              <View style={styles.topItemsList}>
+                {topItems.length > 0 ? (
+                  topItems.map((item, index) => (
+                    <View key={item.menu_item_id || index} style={styles.topItemCard}>
+                      <View style={styles.rankBadge}>
+                        <Text style={styles.rankNumber}>{item.rank}</Text>
+                      </View>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      <Text style={styles.itemSold}>{item.sold} sold</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>No items sold today</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Sign Out Button */}
        <TouchableOpacity
@@ -466,6 +503,48 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginRight: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#D9534F',
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
 });
 
