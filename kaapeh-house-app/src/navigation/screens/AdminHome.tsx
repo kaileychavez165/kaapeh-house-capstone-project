@@ -101,9 +101,12 @@ const AdminHome = () => {
   const weeklyData = dashboardData?.weeklySales || [];
   const topItems = dashboardData?.topItems || [];
 
+  // Sort weekly data by sales amount (highest to lowest)
+  const sortedWeeklyData = [...weeklyData].sort((a, b) => b.sales - a.sales);
+
   // Calculate max sales for chart scaling
-  const maxSales = weeklyData.length > 0 
-    ? Math.max(...weeklyData.map(d => d.sales), 1) 
+  const maxSales = sortedWeeklyData.length > 0 
+    ? Math.max(...sortedWeeklyData.map(d => d.sales), 1) 
     : 1;
 
 
@@ -192,11 +195,11 @@ const AdminHome = () => {
                   <Text style={styles.yAxisLabel}>$0</Text>
                 </View>
                 <View style={styles.chartArea}>
-                  {weeklyData.length > 0 ? (
-                    weeklyData.map((item, index) => {
+                  {sortedWeeklyData.length > 0 ? (
+                    sortedWeeklyData.map((item, index) => {
                       const barHeight = (item.sales / maxSales) * 120;
                       return (
-                        <View key={index} style={styles.barContainer}>
+                        <View key={`${item.date}-${index}`} style={styles.barContainer}>
                           <View style={styles.barWrapper}>
                             <LinearGradient
                               colors={['#20B2AA', '#87CEEB']}

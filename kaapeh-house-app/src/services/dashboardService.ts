@@ -45,10 +45,11 @@ export const fetchTodaysMetrics = async (): Promise<DashboardMetrics> => {
   try {
     const { start, end } = getTodayRange();
 
-    // Fetch all orders created today
+    // Fetch only completed orders created today
     const { data: orders, error } = await supabase
       .from('orders')
       .select('total_amount')
+      .eq('status', 'completed')
       .gte('created_at', start)
       .lte('created_at', end);
 
@@ -88,6 +89,7 @@ export const fetchWeeklySales = async (): Promise<WeeklySalesData[]> => {
       const { data: orders, error } = await supabase
         .from('orders')
         .select('total_amount')
+        .eq('status', 'completed')
         .gte('created_at', start)
         .lte('created_at', end);
 
@@ -122,10 +124,11 @@ export const fetchTopItemsToday = async (limit: number = 3): Promise<TopItem[]> 
   try {
     const { start, end } = getTodayRange();
 
-    // First, get all order_items from today's orders
+    // First, get only completed orders from today
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select('id')
+      .eq('status', 'completed')
       .gte('created_at', start)
       .lte('created_at', end);
 
