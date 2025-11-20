@@ -11,106 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
-
-type OrderStatus = 'pending' | 'completed';
-
-interface OrderItem {
-  name: string;
-  quantity: number;
-}
-
-interface Order {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  avatar: string;
-  items: OrderItem[];
-  total: number;
-  time: string;
-  status: OrderStatus;
-}
-
-const initialNewOrders: Order[] = [
-  {
-    id: '1',
-    customerName: 'Jessica Santos',
-    customerEmail: 'jessicasantos@gmail.com',
-    avatar: 'JS',
-    items: [
-      { name: 'Caffe Mocha', quantity: 2 },
-      { name: 'Matcha Latte', quantity: 1 },
-    ],
-    total: 19.5,
-    time: '2 min ago',
-    status: 'pending',
-  },
-  {
-    id: '2',
-    customerName: 'John Smith',
-    customerEmail: 'john.smith@gmail.com',
-    avatar: 'JS',
-    items: [
-      { name: 'Flat White', quantity: 1 },
-      { name: 'Turkey & Cheese Croissant', quantity: 1 },
-    ],
-    total: 12.5,
-    time: '5 min ago',
-    status: 'pending',
-  },
-  {
-    id: '3',
-    customerName: 'Maria Hernandez',
-    customerEmail: 'mariahernandez10@gmail.com',
-    avatar: 'MH',
-    items: [
-      { name: 'Iced Latte', quantity: 3 },
-      { name: 'Pistachio Cranberry Scone', quantity: 2 },
-    ],
-    total: 24.5,
-    time: '8 min ago',
-    status: 'pending',
-  },
-];
-
-const initialPastOrders: Order[] = [
-  {
-    id: '4',
-    customerName: 'Michael Rivera',
-    customerEmail: 'mike.rivera@gmail.com',
-    avatar: 'MR',
-    items: [
-      { name: 'Frappuccino', quantity: 2 },
-      { name: 'Iced Caramel Macchiato', quantity: 1 },
-    ],
-    total: 16.5,
-    time: 'Today, 8:30 AM',
-    status: 'completed',
-  },
-  {
-    id: '5',
-    customerName: 'Jane Smith',
-    customerEmail: 'jane.s@gmail.com',
-    avatar: 'JS',
-    items: [{ name: 'Caffe Mocha', quantity: 1 }],
-    total: 5.5,
-    time: 'Today, 7:45 AM',
-    status: 'completed',
-  },
-  {
-    id: '6',
-    customerName: 'Robert Chen',
-    customerEmail: 'rchen@gmail.com',
-    avatar: 'RC',
-    items: [
-      { name: 'Flat White', quantity: 2 },
-      { name: 'Matcha Latte', quantity: 1 },
-      { name: 'Pistachio Cranberry Scone', quantity: 1 },
-    ],
-    total: 20,
-    time: 'Yesterday, 3:15 PM',
-    status: 'completed',
-  },
-];
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const ChartIcon = ({ active = false }: { active?: boolean }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -177,43 +78,7 @@ const EditIcon = ({ active = false }: { active?: boolean }) => (
 );
 
 const TruckIcon = ({ active = false }: { active?: boolean }) => (
-  <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 7h12v10H5a2 2 0 0 1-2-2V7z"
-      stroke={active ? '#20B2AA' : '#999'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M15 10h3l3 3v4a2 2 0 0 1-2 2h-1"
-      stroke={active ? '#20B2AA' : '#999'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Circle
-      cx="7.5"
-      cy="17.5"
-      r="1.5"
-      stroke={active ? '#20B2AA' : '#999'}
-      strokeWidth="2"
-    />
-    <Circle
-      cx="17.5"
-      cy="17.5"
-      r="1.5"
-      stroke={active ? '#20B2AA' : '#999'}
-      strokeWidth="2"
-    />
-    <Path
-      d="M15 14h4"
-      stroke={active ? '#20B2AA' : '#999'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
+  <MaterialCommunityIcons name="truck-check" size={28} color={active ? "#20B2AA" : "#999"} />
 );
 
 const OrdersHubScreen = () => {
