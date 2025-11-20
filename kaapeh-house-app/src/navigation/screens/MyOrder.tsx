@@ -157,12 +157,14 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
+            case "pending":
+                return "#FFD700";
+            case "accepted":
+                return "#FFA500";
             case "preparing":
                 return "#90EE90";
             case "ready":
                 return "#87CEEB";
-            case "pending":
-                return "#FFD700";
             case "completed":
                 return "#90EE90";
             case "cancelled":
@@ -174,12 +176,14 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
     const getStatusDisplayName = (status: string) => {
         switch (status.toLowerCase()) {
+            case "pending":
+                return "Pending";
+            case "accepted":
+                return "Accepted";
             case "preparing":
                 return "Preparing";
             case "ready":
                 return "Ready";
-            case "pending":
-                return "Pending";
             case "completed":
                 return "Completed";
             case "cancelled":
@@ -270,6 +274,16 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                                                 : `Placed ${formatTimeAgo(order.created_at)}`}
                                         </Text>
                                     </View>
+
+                                    {/* Accepted Status Message */}
+                                    {order.status === 'accepted' && (
+                                        <View style={styles.acceptedMessageContainer}>
+                                            <MaterialCommunityIcons name="check-circle" size={16} color="#FFA500" />
+                                            <Text style={styles.acceptedMessageText}>
+                                                A barista has acknowledged your order but hasn't started working on it yet.
+                                            </Text>
+                                        </View>
+                                    )}
 
                                     {/* Order Items */}
                                     <View style={styles.itemsContainer}>
@@ -726,6 +740,23 @@ const styles = StyleSheet.create({
     },
     bottomSpacing: {
         height: 100,
+    },
+    acceptedMessageContainer: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        backgroundColor: "#FFF4E6",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: "#FFA500",
+    },
+    acceptedMessageText: {
+        fontSize: 13,
+        color: "#666666",
+        marginLeft: 8,
+        flex: 1,
+        lineHeight: 18,
     },
 });
 
