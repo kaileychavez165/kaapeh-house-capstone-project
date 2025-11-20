@@ -44,51 +44,6 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
         }
     }, [activeOrders]);
 
-    // Dummy order data for testing
-    const getDummyOrder = (): Order => {
-        const eightMinutesAgo = new Date(Date.now() - 8 * 60000).toISOString();
-        return {
-            id: "dummy-order-3847",
-            customer_id: session?.user?.id || "dummy-user",
-            order_number: "#3847",
-            status: "preparing",
-            total: 7.75,
-            estimated_time: "15-20 min",
-            location: "Main Street Cafe",
-            customer_status: "on_the_way",
-            created_at: eightMinutesAgo,
-            order_items: [
-                {
-                    id: "dummy-item-1",
-                    order_id: "dummy-order-3847",
-                    menu_item_id: "dummy-menu-1",
-                    quantity: 1,
-                    size: "M",
-                    temperature: "hot",
-                    price: 4.50,
-                    menu_item: {
-                        name: "Caramel Latte",
-                        description: "Rich espresso with caramel and steamed milk",
-                    },
-                },
-                {
-                    id: "dummy-item-2",
-                    order_id: "dummy-order-3847",
-                    menu_item_id: "dummy-menu-2",
-                    quantity: 1,
-                    price: 3.25,
-                    menu_item: {
-                        name: "Blueberry Muffin",
-                        description: "Fresh baked blueberry muffin",
-                    },
-                },
-            ],
-        };
-    };
-
-    // For now, add dummy order if no orders found (for testing)
-    const ordersToShow = activeOrders.length > 0 ? activeOrders : [getDummyOrder()];
-
     const handleCancelOrder = async (orderId: string) => {
         Alert.alert(
             "Cancel Order",
@@ -128,11 +83,6 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                 ...prev,
                 [orderId]: status,
             }));
-
-            // Skip API call for dummy orders
-            if (orderId.startsWith("dummy-")) {
-                return;
-            }
 
             await updateCustomerStatus(orderId, status);
             
@@ -207,12 +157,14 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
+            case "pending":
+                return "#FFD700";
+            case "accepted":
+                return "#FFA500";
             case "preparing":
                 return "#90EE90";
             case "ready":
                 return "#87CEEB";
-            case "pending":
-                return "#FFD700";
             case "completed":
                 return "#90EE90";
             case "cancelled":
@@ -224,12 +176,14 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
     const getStatusDisplayName = (status: string) => {
         switch (status.toLowerCase()) {
+            case "pending":
+                return "Pending";
+            case "accepted":
+                return "Accepted";
             case "preparing":
                 return "Preparing";
             case "ready":
                 return "Ready";
-            case "pending":
-                return "Pending";
             case "completed":
                 return "Completed";
             case "cancelled":
@@ -286,7 +240,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                         <View style={styles.loadingContainer}>
                             <Text style={styles.loadingText}>Loading orders...</Text>
                         </View>
-                    ) : (activeTab === 'active' ? ordersToShow : pastOrders).length === 0 ? (
+                    ) : (activeTab === 'active' ? activeOrders : pastOrders).length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <MaterialCommunityIcons name="package-variant" size={64} color="#999999" />
                             <Text style={styles.emptyText}>
@@ -300,7 +254,7 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                         </View>
                     ) : (
                         <>
-                            {(activeTab === 'active' ? ordersToShow : pastOrders).map((order: Order) => (
+                            {(activeTab === 'active' ? activeOrders : pastOrders).map((order: Order) => (
                                 <View key={order.id} style={styles.orderCard}>
                                     {/* Order Header */}
                                     <View style={styles.orderHeader}>
@@ -320,6 +274,16 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                                                 : `Placed ${formatTimeAgo(order.created_at)}`}
                                         </Text>
                                     </View>
+
+                                    {/* Accepted Status Message */}
+                                    {order.status === 'accepted' && (
+                                        <View style={styles.acceptedMessageContainer}>
+                                            <MaterialCommunityIcons name="check-circle" size={16} color="#FFA500" />
+                                            <Text style={styles.acceptedMessageText}>
+                                                A barista has acknowledged your order but hasn't started working on it yet.
+                                            </Text>
+                                        </View>
+                                    )}
 
                                     {/* Order Items */}
                                     <View style={styles.itemsContainer}>
@@ -776,6 +740,23 @@ const styles = StyleSheet.create({
     },
     bottomSpacing: {
         height: 100,
+    },
+    acceptedMessageContainer: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        backgroundColor: "#FFF4E6",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: "#FFA500",
+    },
+    acceptedMessageText: {
+        fontSize: 13,
+        color: "#666666",
+        marginLeft: 8,
+        flex: 1,
+        lineHeight: 18,
     },
 });
 
