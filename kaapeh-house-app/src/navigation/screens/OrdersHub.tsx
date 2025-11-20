@@ -476,7 +476,7 @@ const OrdersHubScreen = () => {
 
                     {order.special_instructions && (
                       <View style={styles.specialInstructionsContainer}>
-                        <Text style={styles.specialInstructionsLabel}>Special Instructions:</Text>
+                        <Text style={styles.specialInstructionsLabel}>Special Instructions</Text>
                         <Text style={styles.specialInstructionsText}>
                           {order.special_instructions}
                         </Text>
