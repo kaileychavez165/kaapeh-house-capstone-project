@@ -392,14 +392,7 @@ export default function OrderDetailScreen() {
         {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Rewards Section */}
-        <View style={styles.rewardsSection}>
-          <TouchableOpacity style={styles.rewardsButton}>
-            <MaterialCommunityIcons name="tag" size={20} color="#acc18a" />
-            <Text style={styles.rewardsText}>3 Reward is Applied</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color="#666666" />
-          </TouchableOpacity>
-        </View>
+       
 
         {/* Divider */}
         <View style={styles.divider} />
@@ -413,17 +406,6 @@ export default function OrderDetailScreen() {
           </View>
         </View>
 
-        {/* Payment Method Section */}
-        <View style={styles.paymentMethodSection}>
-          <TouchableOpacity style={styles.paymentMethodButton}>
-            <MaterialCommunityIcons name="wallet" size={20} color="#acc18a" />
-            <View style={styles.paymentMethodDetails}>
-              <Text style={styles.paymentMethodTitle}>Cash/Wallet</Text>
-              <Text style={styles.paymentMethodAmount}>$ {total.toFixed(2)}</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-down" size={20} color="#666666" />
-          </TouchableOpacity>
-        </View>
 
         {/* Order Button */}
         <View style={styles.orderButtonContainer}>
