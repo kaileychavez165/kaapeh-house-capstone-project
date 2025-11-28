@@ -196,7 +196,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
     >
       {!message.isUser && (
         <View style={styles.botAvatar}>
-          <MaterialCommunityIcons name="robot" size={20} color="#FFFFFF" />
+          <MaterialCommunityIcons name="robot-happy-outline" size={20} color="#FFFFFF" />
         </View>
       )}
       <View
@@ -233,7 +233,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
             <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.appIconCircle}>
-            <MaterialCommunityIcons name="robot" size={22} color="#FFFFFF" />
+            <MaterialCommunityIcons name="robot-happy-outline" size={22} color="#FFFFFF" />
             <View style={styles.onlineDot} />
           </View>
           <View style={styles.headerTextGroup}>
@@ -261,7 +261,7 @@ export default function ChatBotScreen({ session }: ChatBotProps) {
             {isLoading && (
               <View style={styles.loadingMessageContainer}>
                 <View style={styles.botAvatar}>
-                  <MaterialCommunityIcons name="robot" size={20} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="robot-happy-outline" size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.loadingBubble}>
                   <ActivityIndicator size="small" color="#acc18a" />

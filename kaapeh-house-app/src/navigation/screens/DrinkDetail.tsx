@@ -63,7 +63,6 @@ export default function DrinkDetailScreen() {
   const [selectedCustomizations, setSelectedCustomizations] = useState<Record<string, string>>({}); // subCategory -> itemId
   const [customizationOptions, setCustomizationOptions] = useState<Record<string, DbMenuItem[]>>({}); // subCategory -> items
   
-  const [isFavorited, setIsFavorited] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
 
   // Fetch full menu item details from database
@@ -303,17 +302,6 @@ export default function DrinkDetailScreen() {
         </TouchableOpacity>
         
         <Text style={styles.headerTitle}>Detail</Text>
-        
-        <TouchableOpacity 
-          style={styles.favoriteButton}
-          onPress={() => setIsFavorited(!isFavorited)}
-        >
-          <MaterialCommunityIcons 
-            name={isFavorited ? "heart" : "heart-outline"} 
-            size={24} 
-            color={isFavorited ? "#FF6B6B" : "#2B2B2B"} 
-          />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.contentContainer}>
@@ -558,21 +546,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#F5F1E8',
+    position: 'relative',
   },
   backButton: {
     padding: 8,
+    position: 'absolute',
+    left: 20,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2B2B2B',
-  },
-  favoriteButton: {
-    padding: 8,
+    textAlign: 'center',
   },
   contentContainer: {
     flex: 1,
