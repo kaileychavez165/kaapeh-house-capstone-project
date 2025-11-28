@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform,
   Alert,
   BackHandler,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -46,6 +47,21 @@ export default function HomeScreen({ session }: HomeScreenProps) {
   const navigation = useNavigation();
   const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Tooltip messages array
+  const tooltipMessages = [
+    "Hi! Need help? Tap me!",
+    "Hey! I'm Kaapi, here to help ☕️ ",
+    "Looking for something? I can help! 🔍",
+  ];
+  
+  // Tooltip animation state
+  const tooltipOpacity = useRef(new Animated.Value(0)).current;
+  const tooltipTranslateX = useRef(new Animated.Value(10)).current;
+  const tooltipIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasClickedButtonRef = useRef(false);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [hasClickedButton, setHasClickedButton] = useState(false);
 
   // React Query hooks
   const { data: categories = [], isLoading: categoriesLoading } = useMenuCategories();
@@ -101,6 +117,88 @@ export default function HomeScreen({ session }: HomeScreenProps) {
     return () => backHandler.remove();
   }, []);
 
+  // Tooltip animation function
+  const showTooltip = () => {
+    // Don't show if button has been clicked
+    if (hasClickedButtonRef.current) {
+      return;
+    }
+
+    // Reset and show tooltip (animate from right to left)
+    Animated.parallel([
+      Animated.timing(tooltipOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(tooltipTranslateX, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Hide tooltip after 3 seconds
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(tooltipOpacity, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(tooltipTranslateX, {
+            toValue: 10,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Move to next message (cycle through)
+          setCurrentMessageIndex((prev) => (prev + 1) % tooltipMessages.length);
+        });
+      }, 3000);
+    });
+  };
+
+  // Set up interval to show tooltip every 8 seconds
+  useEffect(() => {
+    // Don't set up tooltips if button has been clicked
+    if (hasClickedButton) {
+      // Clear any existing intervals
+      if (tooltipIntervalRef.current) {
+        clearInterval(tooltipIntervalRef.current);
+        tooltipIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Show tooltip after initial 3 second delay
+    const initialTimeout = setTimeout(() => {
+      if (!hasClickedButtonRef.current) {
+        showTooltip();
+      }
+    }, 3000);
+
+    // Then show it every 8 seconds
+    tooltipIntervalRef.current = setInterval(() => {
+      if (!hasClickedButtonRef.current) {
+        showTooltip();
+      } else {
+        // Clear interval if button was clicked
+        if (tooltipIntervalRef.current) {
+          clearInterval(tooltipIntervalRef.current);
+          tooltipIntervalRef.current = null;
+        }
+      }
+    }, 8000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (tooltipIntervalRef.current) {
+        clearInterval(tooltipIntervalRef.current);
+        tooltipIntervalRef.current = null;
+      }
+    };
+  }, [hasClickedButton]);
+
   // Helper function to validate if a string is a valid URL
   const isValidImageUrl = (url: string | null | undefined): boolean => {
     if (!url || url.trim() === '') return false;
@@ -148,13 +246,8 @@ export default function HomeScreen({ session }: HomeScreenProps) {
             <Text style={styles.soldOutText}>SOLD OUT</Text>
           </View>
         )}
-        <View style={styles.ratingContainer}>
-          <MaterialCommunityIcons name="star" size={12} color="#FFD700" />
-          <Text style={styles.ratingText}>{item.rating}</Text>
-        </View>
       </View>
       <Text style={[styles.drinkName, !item.available && styles.unavailableText]}>{item.name}</Text>
-      <Text style={[styles.drinkDescription, !item.available && styles.unavailableText]}>{item.description}</Text>
       <View style={styles.drinkFooter}>
         <Text style={[styles.drinkPrice, !item.available && styles.unavailableText]}>${item.price.toFixed(2)}</Text>
         <TouchableOpacity 
@@ -192,10 +285,16 @@ export default function HomeScreen({ session }: HomeScreenProps) {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  style={styles.clearButton}
+                >
+                  <MaterialCommunityIcons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
             </View>
-            <TouchableOpacity style={styles.filterButton}>
-              <MaterialCommunityIcons name="tune" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+            
           </View>
         </View>
       </View>
@@ -238,7 +337,10 @@ export default function HomeScreen({ session }: HomeScreenProps) {
                   styles.categoryButton,
                   selectedCategory === category && styles.selectedCategoryButton
                 ]}
-                onPress={() => setSelectedCategory(category)}
+                onPress={() => {
+                  setSelectedCategory(category);
+                  setSearchQuery(''); // Clear search when category is selected
+                }}
               >
                 <Text
                   style={[
@@ -291,13 +393,56 @@ export default function HomeScreen({ session }: HomeScreenProps) {
       {/* Bottom Navigation Bar */}
       <BottomNavigationBar currentScreen="Home" />
 
-      {/* Floating Action Button */}
-      <TouchableOpacity 
-        style={styles.floatingButton}
-        onPress={() => navigation.navigate('ChatBot' as never)}
-      >
-        <MaterialCommunityIcons name="emoticon-happy-outline" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Floating Action Button with Tooltip */}
+      <View style={styles.floatingButtonContainer}>
+        {/* Animated Tooltip */}
+        <Animated.View
+          style={[
+            styles.tooltipContainer,
+            {
+              opacity: tooltipOpacity,
+              transform: [{ translateX: tooltipTranslateX }],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.tooltipText}>{tooltipMessages[currentMessageIndex]}</Text>
+          <View style={styles.tooltipArrow}>
+            <View style={styles.tooltipArrowTriangle} />
+          </View>
+        </Animated.View>
+
+        <TouchableOpacity 
+          style={styles.floatingButton}
+          onPress={() => {
+            // Stop showing tooltips
+            hasClickedButtonRef.current = true;
+            setHasClickedButton(true);
+            // Clear any running intervals
+            if (tooltipIntervalRef.current) {
+              clearInterval(tooltipIntervalRef.current);
+              tooltipIntervalRef.current = null;
+            }
+            // Hide tooltip immediately
+            Animated.parallel([
+              Animated.timing(tooltipOpacity, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+              }),
+              Animated.timing(tooltipTranslateX, {
+                toValue: 10,
+                duration: 300,
+                useNativeDriver: true,
+              }),
+            ]).start();
+            // Navigate to chatbot
+            navigation.navigate('ChatBot' as never);
+          }}
+        >
+          <MaterialCommunityIcons name="robot-happy-outline" size={32} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -350,6 +495,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#2B2B2B',
+  },
+  clearButton: {
+    padding: 4,
   },
   filterButton: {
     backgroundColor: '#acc18a',
@@ -414,7 +562,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    height: 160, // Set a fixed height for the banner
+    height: 120, // Set a fixed height for the banner
   },
   bannerImage: {
     width: '100%',
@@ -553,10 +701,56 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
   },
-  floatingButton: {
+  floatingButtonContainer: {
     position: 'absolute',
     bottom: 100,
     right: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    right: 70,
+    backgroundColor: '#2B2B2B',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 8,
+    minWidth: 120,
+    maxWidth: 300,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    alignSelf: 'flex-end',
+  },
+  tooltipText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    right: -8,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  tooltipArrowTriangle: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderLeftWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#2B2B2B',
+  },
+  floatingButton: {
     backgroundColor: '#acc18a',
     borderRadius: 12,
     padding: 16,

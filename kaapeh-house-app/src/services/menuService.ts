@@ -126,17 +126,26 @@ export const fetchMenuCategories = async (forAdmin: boolean = false): Promise<st
 // excludeAdminCategories: if true, excludes admin-only categories like 'Customizations'
 export const searchMenuItems = async (query: string, excludeAdminCategories: boolean = false): Promise<MenuItem[]> => {
     try {
-        let searchQuery = supabase
-            .from('menu_items')
-            .select('*')
-            .or(`name.ilike.%${query}%,description.ilike.%${query}%`);
-
-        // Exclude admin-only categories if requested
-        if (excludeAdminCategories) {
-            searchQuery = searchQuery.neq('category', 'Customizations');
+        // Trim the query string
+        const searchTerm = query.trim();
+        if (!searchTerm) {
+            return [];
         }
 
-        const { data, error } = await searchQuery.order('created_at', { ascending: false });
+        // Build base query
+        let baseQuery = supabase.from('menu_items').select('*');
+        
+        // Exclude admin-only categories if requested (apply before OR filter)
+        if (excludeAdminCategories) {
+            baseQuery = baseQuery.neq('category', 'Customizations');
+        }
+
+        // Use OR filter with proper PostgREST syntax
+        // Format: field.operator.value,field.operator.value
+        const searchPattern = `%${searchTerm}%`;
+        const { data, error } = await baseQuery
+            .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error('Error searching menu items:', error);
