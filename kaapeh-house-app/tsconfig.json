@@ -3,14 +3,21 @@
   "compilerOptions": {
     "strict": true,
     "moduleResolution": "bundler",
+    "types": ["jest", "@testing-library/jest-native", "node"],
     "paths": {
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "**/__tests__/**/*.ts",
+    "**/__tests__/**/*.tsx",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }
