@@ -12,7 +12,7 @@ export const BUSINESS_HOURS: Record<number, { open: number; close: number }> = {
 // For testing purposes, set this to a Date object to override the current time (good for testing outside of business hours)
 // Set to null to use the actual current time
 // Example: export const TEST_CURRENT_TIME = new Date('2024-01-15T14:30:00'); // Monday, 2:30 PM
-export const TEST_CURRENT_TIME: Date | null = new Date('2024-01-15T15:01:00');
+export const TEST_CURRENT_TIME: Date | null = null;
 
 const getCurrentTime = (): Date => {
   return TEST_CURRENT_TIME || new Date();
