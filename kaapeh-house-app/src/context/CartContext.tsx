@@ -23,15 +23,20 @@ interface CartContextValue {
   removeItem: (id: string, options?: { size?: string; temperature?: string }) => void;
   clear: () => void;
   setQuantity: (id: string, quantity: number, options?: { size?: string; temperature?: string }) => void;
+  pickupTime: Date | null;
+  setPickupTime: (time: Date | null) => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'kh_cart_v1';
+const PICKUP_TIME_KEY = 'kh_pickup_time_v1';
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [pickupTime, setPickupTimeState] = useState<Date | null>(null);
 
+  // Load cart items and pickup time on mount
   useEffect(() => {
     (async () => {
       try {
@@ -43,12 +48,33 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (e) {
         // noop
       }
+      
+      try {
+        const pickupTimeRaw = await AsyncStorage.getItem(PICKUP_TIME_KEY);
+        if (pickupTimeRaw) {
+          const parsedTime = new Date(pickupTimeRaw);
+          // Only set if it's a valid date
+          if (!isNaN(parsedTime.getTime())) {
+            setPickupTimeState(parsedTime);
+          }
+        }
+      } catch (e) {
+        // noop
+      }
     })();
   }, []);
 
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items)).catch(() => {});
   }, [items]);
+
+  useEffect(() => {
+    if (pickupTime) {
+      AsyncStorage.setItem(PICKUP_TIME_KEY, pickupTime.toISOString()).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(PICKUP_TIME_KEY).catch(() => {});
+    }
+  }, [pickupTime]);
 
   const addItem = useCallback((item: CartItem) => {
     setItems(prev => {
@@ -85,7 +111,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }));
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    setItems([]);
+    setPickupTimeState(null);
+  }, []);
+
+  const setPickupTime = useCallback((time: Date | null) => {
+    setPickupTimeState(time);
+  }, []);
 
   const setQuantity = useCallback((id: string, quantity: number, options?: { size?: string; temperature?: string }) => {
     setItems(prev => prev.map(i => {
@@ -99,8 +132,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const value = useMemo(
-    () => ({ items, addItem, removeItem, clear, setQuantity }),
-    [items, addItem, removeItem, clear, setQuantity]
+    () => ({ items, addItem, removeItem, clear, setQuantity, pickupTime, setPickupTime }),
+    [items, addItem, removeItem, clear, setQuantity, pickupTime, setPickupTime]
   );
 
   return (
