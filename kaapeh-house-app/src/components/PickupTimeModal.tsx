@@ -272,7 +272,7 @@ export default function PickupTimeModal({
                             selectedTime && !timeSlots.some(slot => slot.getTime() === selectedTime.getTime()) && styles.selectedTimeOptionText,
                           ]}
                         >
-                          Custom Time
+                          Choose custom time...
                         </Text>
                         {selectedTime && !timeSlots.some(slot => slot.getTime() === selectedTime.getTime()) && (
                           <MaterialCommunityIcons name="check-circle" size={20} color="#acc18a" />
@@ -462,7 +462,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   customInputContainer: {
-    marginTop: 12,
+    marginTop: 0,
+    marginBottom: 90,
     padding: 16,
     backgroundColor: '#F9F9F9',
     borderRadius: 8,
