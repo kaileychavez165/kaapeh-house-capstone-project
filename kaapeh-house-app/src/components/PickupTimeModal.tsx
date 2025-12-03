@@ -145,7 +145,7 @@ export default function PickupTimeModal({
     }
 
     if (!selectedTime) {
-      Alert.alert('Please select a time', 'You must select a valid pickup time within business hours before continuing.');
+      Alert.alert('Please select a time', 'You must select a valid pickup time within business hours and no earlier than the first available time slot before continuing.');
       return;
     }
 
