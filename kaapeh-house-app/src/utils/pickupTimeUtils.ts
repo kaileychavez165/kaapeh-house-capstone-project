@@ -92,8 +92,8 @@ const roundUpToInterval = (date: Date, intervalMinutes: number): Date => {
 
 
 // Used to generate time slots for the current day starting from now
-// First slot: closest 10-minute interval from current time
-// Subsequent slots: 5-minute intervals
+// First slot: closest 15-minute interval from current time
+// Subsequent slots: 15-minute intervals
 export const generateTimeSlotsForToday = (): Date[] => {
   const now = getCurrentTime();
   const slots: Date[] = [];
@@ -120,33 +120,33 @@ export const generateTimeSlotsForToday = (): Date[] => {
   let currentSlot: Date;
   const nowMinutes = now.getMinutes();
   const nowHours = now.getHours();
-  const remainder = nowMinutes % 10; // How many minutes past the 10-minute interval
+  const remainder = nowMinutes % 15; // How many minutes past the 15-minute interval
   
   if (remainder <= 2) {
-    // Within 2 minutes of a 10-minute interval (e.g., 8:00-8:02, 8:10-8:12)
-    // Use the next 10-minute interval
+    // Within 2 minutes of a 15-minute interval (e.g., 8:00-8:02, 8:15-8:17)
+    // Use the next 15-minute interval
     currentSlot = new Date(now);
-    const nextInterval = Math.floor(nowMinutes / 10) * 10 + 10;
+    const nextInterval = Math.floor(nowMinutes / 15) * 15 + 15;
     if (nextInterval >= 60) {
       // Roll over to next hour
       currentSlot.setHours(nowHours + 1, nextInterval - 60, 0, 0);
     } else {
       currentSlot.setMinutes(nextInterval, 0, 0);
     }
-    console.log('Within 2-min buffer: using next 10-min interval:', currentSlot.toLocaleString());
+    console.log('Within 2-min buffer: using next 15-min interval:', currentSlot.toLocaleString());
   } else {
-    // More than 2 minutes past the interval (e.g., 8:03-8:09, 8:13-8:19)
-    // Skip the next 10-minute interval, use 15 minutes after current interval
+    // More than 2 minutes past the interval (e.g., 8:03-8:14, 8:18-8:29)
+    // Skip the next 15-minute interval, use 30 minutes after current interval
     currentSlot = new Date(now);
-    const currentInterval = Math.floor(nowMinutes / 10) * 10;
-    const targetMinutes = currentInterval + 15;
+    const currentInterval = Math.floor(nowMinutes / 15) * 15;
+    const targetMinutes = currentInterval + 30;
     if (targetMinutes >= 60) {
       // Roll over to next hour
       currentSlot.setHours(nowHours + 1, targetMinutes - 60, 0, 0);
     } else {
       currentSlot.setMinutes(targetMinutes, 0, 0);
     }
-    console.log('Past 2-min buffer: skipping next interval, using +15min:', currentSlot.toLocaleString());
+    console.log('Past 2-min buffer: skipping next interval, using +30min:', currentSlot.toLocaleString());
   }
   
   // If the first slot is before opening time, start from opening time
@@ -157,9 +157,9 @@ export const generateTimeSlotsForToday = (): Date[] => {
 
   // Ensure first slot is always after current time
   if (currentSlot <= now) {
-    // If somehow we got a slot that's not after now, add 10 more minutes
+    // If somehow we got a slot that's not after now, add 15 more minutes
     currentSlot = new Date(now);
-    currentSlot.setMinutes(currentSlot.getMinutes() + 10);
+    currentSlot.setMinutes(currentSlot.getMinutes() + 15);
     currentSlot.setSeconds(0, 0);
     currentSlot.setMilliseconds(0);
     console.log('Adjusted to be after now:', currentSlot.toLocaleString());
@@ -171,8 +171,8 @@ export const generateTimeSlotsForToday = (): Date[] => {
     slots.push(new Date(currentSlot));
     slotCount++;
     
-    // After first slot, use 5-minute intervals
-    currentSlot.setMinutes(currentSlot.getMinutes() + 5);
+    // After first slot, use 15-minute intervals
+    currentSlot.setMinutes(currentSlot.getMinutes() + 15);
   }
 
   console.log('Generated', slots.length, 'time slots');
@@ -180,7 +180,7 @@ export const generateTimeSlotsForToday = (): Date[] => {
 };
 
 // Generate time slots starting from a minimum time (for editing existing orders)
-// Uses 5-minute intervals
+// Uses 15-minute intervals
 // The first slot must be AFTER the minTime (not equal to it)
 export const generateTimeSlotsFromMinTime = (minTime: Date): Date[] => {
   const slots: Date[] = [];
@@ -197,11 +197,14 @@ export const generateTimeSlotsFromMinTime = (minTime: Date): Date[] => {
   // Get closing time for today
   const closingTime = getClosingTime(today);
 
-  // Start from minimum time, add 5 minutes to ensure it's later than minTime
-  // Then round up to nearest 5 minutes
-  let currentSlot = new Date(minTime);
-  currentSlot.setMinutes(currentSlot.getMinutes() + 5);
-  currentSlot = roundUpToInterval(currentSlot, 5);
+  // Start from minimum time, round up to next 15-minute interval
+  // Ensure it's strictly after minTime (not equal to it)
+  let currentSlot = roundUpToInterval(new Date(minTime), 15);
+  
+  // If rounding up resulted in the same time (already on 15-min interval), add 15 more minutes
+  if (currentSlot.getTime() <= minTime.getTime()) {
+    currentSlot.setMinutes(currentSlot.getMinutes() + 15);
+  }
   
   // Ensure we don't go before opening time
   const openingTime = getOpeningTime(today);
@@ -212,7 +215,7 @@ export const generateTimeSlotsFromMinTime = (minTime: Date): Date[] => {
   // Generate slots until closing time
   while (currentSlot < closingTime) {
     slots.push(new Date(currentSlot));
-    currentSlot.setMinutes(currentSlot.getMinutes() + 5);
+    currentSlot.setMinutes(currentSlot.getMinutes() + 15);
   }
 
   return slots;
@@ -307,17 +310,17 @@ export const validateCustomTime = (
   baseDate: Date,
   minTime?: Date
 ): { valid: boolean; error?: string } => {
-  // If minTime is provided (editing), ensure custom time is after it
-  if (minTime && customTime <= minTime) {
-    return { valid: false, error: 'New pickup time must be later than the current pickup time' };
+
+  if (minTime && customTime < minTime) {
+    return { valid: false, error: 'New pickup time must be at or after the current pickup time.' };
   }
 
   if (customTime < firstSlot) {
-    return { valid: false, error: 'Time must be after the first available slot' };
+    return { valid: false, error: 'Time must be after the first available time slot.' };
   }
 
   if (!isWithinBusinessHours(customTime)) {
-    return { valid: false, error: 'Time must be within business hours' };
+    return { valid: false, error: 'Time must be within business hours.' };
   }
 
   const customDay = new Date(customTime.getFullYear(), customTime.getMonth(), customTime.getDate());
