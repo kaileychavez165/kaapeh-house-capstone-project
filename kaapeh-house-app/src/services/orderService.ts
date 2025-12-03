@@ -25,6 +25,7 @@ export interface Order {
   location?: string;
   customer_status?: string;
   created_at: string;
+  pickup_time?: string;
   order_items?: OrderItem[];
 }
 
@@ -119,6 +120,7 @@ export const fetchActiveOrders = async (customerId: string): Promise<Order[]> =>
       location: order.location || order.store_location || "Main Street Cafe",
       customer_status: order.customer_status,
       created_at: order.created_at,
+      pickup_time: order.pickup_time,
       order_items: (order.order_items || []).map((item: any) => {
         // Handle different possible structures for menu_item data
         let menuItem = null;
@@ -173,6 +175,7 @@ export interface CreateOrderParams {
   cart_items: CreateOrderItem[];
   total_amount: number;
   special_instructions?: string;
+  pickup_time: string; // timestamp
 }
 
 export const createOrder = async (params: CreateOrderParams): Promise<Order> => {
@@ -186,6 +189,7 @@ export const createOrder = async (params: CreateOrderParams): Promise<Order> => 
         special_instructions: params.special_instructions || null,
         status: "pending",
         customer_status: "not_started",
+        pickup_time: params.pickup_time,
       })
       .select()
       .single();
@@ -251,6 +255,7 @@ export const createOrder = async (params: CreateOrderParams): Promise<Order> => 
         total: parseFloat(order.total_amount),
         customer_status: order.customer_status,
         created_at: order.created_at,
+        pickup_time: order.pickup_time,
         order_items: [],
       };
     }
@@ -264,6 +269,7 @@ export const createOrder = async (params: CreateOrderParams): Promise<Order> => 
       total: parseFloat(completeOrder.total_amount),
       customer_status: completeOrder.customer_status,
       created_at: completeOrder.created_at,
+      pickup_time: completeOrder.pickup_time,
       order_items: (completeOrder.order_items || []).map((item: any) => {
         // Extract customizations from JSONB field
         const customizations = item.customizations || {};
@@ -386,6 +392,7 @@ export const fetchPastOrders = async (customerId: string): Promise<Order[]> => {
       location: order.location || order.store_location || "Main Street Cafe",
       customer_status: order.customer_status,
       created_at: order.created_at,
+      pickup_time: order.pickup_time,
       order_items: (order.order_items || []).map((item: any) => {
         // Handle different possible structures for menu_item data
         let menuItem = null;
@@ -458,6 +465,27 @@ export const updateCustomerStatus = async (
     }
   } catch (error) {
     console.error("Error in updateCustomerStatus:", error);
+    throw error;
+  }
+};
+
+// Update pickup time for an order
+export const updatePickupTime = async (
+  orderId: string,
+  pickupTime: string // ISO string timestamp
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from("orders")
+      .update({ pickup_time: pickupTime })
+      .eq("id", orderId);
+
+    if (error) {
+      console.error("Error updating pickup time:", error);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in updatePickupTime:", error);
     throw error;
   }
 };
@@ -592,6 +620,7 @@ export const fetchAdminPendingOrders = async (): Promise<AdminOrder[]> => {
         location: order.location || order.store_location || "Main Street Cafe",
         customer_status: order.customer_status,
         created_at: order.created_at,
+        pickup_time: order.pickup_time,
         special_instructions: order.special_instructions,
         customer: customer ? {
           id: customer.id,
@@ -752,6 +781,7 @@ export const fetchAdminPastOrders = async (): Promise<AdminOrder[]> => {
         location: order.location || order.store_location || "Main Street Cafe",
         customer_status: order.customer_status,
         created_at: order.created_at,
+        pickup_time: order.pickup_time,
         special_instructions: order.special_instructions,
         customer: customer ? {
           id: customer.id,

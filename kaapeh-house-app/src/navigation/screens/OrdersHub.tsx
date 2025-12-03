@@ -23,6 +23,7 @@ import {
   AdminOrder,
   OrderItem,
 } from '../../services/orderService';
+import { formatTime } from '../../utils/pickupTimeUtils';
 
 const ChartIcon = ({ active = false }: { active?: boolean }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -479,6 +480,17 @@ const OrdersHubScreen = () => {
                         <Text style={styles.specialInstructionsLabel}>Special Instructions</Text>
                         <Text style={styles.specialInstructionsText}>
                           {order.special_instructions}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Pickup Time - Display for pending, accepted, preparing, and ready orders */}
+                    {['pending', 'accepted', 'preparing', 'ready'].includes(order.status) && order.pickup_time && (
+                      <View style={styles.pickupTimeContainer}>
+                        <MaterialCommunityIcons name="clock-outline" size={16} color="#20B2AA" />
+                        <Text style={styles.pickupTimeLabel}>Pickup Time:</Text>
+                        <Text style={styles.pickupTimeText}>
+                          {formatTime(new Date(order.pickup_time))}
                         </Text>
                       </View>
                     )}
@@ -990,6 +1002,25 @@ const styles = StyleSheet.create({
   specialInstructionsText: {
     fontSize: 13,
     color: '#78350F',
+  },
+  pickupTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E0F7F4',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  pickupTimeLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#20B2AA',
+  },
+  pickupTimeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#20B2AA',
   },
   actionRow: {
     flexDirection: 'row',

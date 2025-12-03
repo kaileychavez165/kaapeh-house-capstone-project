@@ -108,7 +108,11 @@ const AdminHome = () => {
       </View>
 
       {/* Main Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Loading State */}
         {isLoading && (
           <View style={styles.loadingContainer}>
@@ -305,14 +309,17 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 10,
+    paddingBottom: 100, // Extra padding to account for bottom navigation bar
   },
   metricsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 5,
+    marginTop: 22,
     marginBottom: 30,
-    gap: 1,
+    gap: 4,
   },
   metricCard: {
     flex: 1,
@@ -388,7 +395,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   topItemsSection: {
-    marginBottom: 100,
+    marginBottom: 32,
   },
   topItemsList: {
     gap: 12,
@@ -424,6 +431,7 @@ const styles = StyleSheet.create({
   },
   itemSold: {
     fontSize: 14,
+    marginLeft: 4,
     color: '#6B7280',
   },
   bottomNav: {
