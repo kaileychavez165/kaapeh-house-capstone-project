@@ -391,6 +391,7 @@ const styles = StyleSheet.create({
         borderColor: "#C9302C",
         flexDirection: "row",
         justifyContent: "center",
+        marginBottom: 32,
     },
     buttonDisabled: {
         backgroundColor: "#A8A8A8",
@@ -455,6 +456,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         paddingVertical: 10,
         paddingHorizontal: 20,
+        marginBottom: 5,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
