@@ -56,6 +56,7 @@ const CustomerPortal = () => {
     joinedDate: string; // "Month YYYY"
     createdAtMs: number;
     avatar: string; // initials for placeholder
+    avatar_url: string | null;
     hasImage: boolean;
   }>>([]);
   const navigation = useNavigation();
@@ -90,7 +91,8 @@ const CustomerPortal = () => {
           joinedDate: formatMonthYear(s.created_at),
           createdAtMs: new Date(s.created_at).getTime(),
           avatar: getInitials(s.full_name),
-          hasImage: false, // placeholder for now
+          avatar_url: s.avatar_url,
+          hasImage: !!(s.avatar_url && (s.avatar_url.startsWith('http') || s.avatar_url.startsWith('https'))),
         }));
         setCustomers(mapped);
       } catch (e: any) {
@@ -349,10 +351,11 @@ const CustomerPortal = () => {
                 </View>
               </View>
               <View style={styles.avatarContainer}>
-                {customer.hasImage ? (
-                  <View style={styles.avatarImage}>
-                    <Text style={styles.avatarText}>👤</Text>
-                  </View>
+                {customer.hasImage && customer.avatar_url ? (
+                  <Image
+                    source={{ uri: customer.avatar_url }}
+                    style={styles.avatarImage}
+                  />
                 ) : (
                   <View style={styles.avatarInitials}>
                     <Text style={styles.avatarText}>{customer.avatar}</Text>
@@ -596,9 +599,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   avatarText: {
     fontSize: 16,

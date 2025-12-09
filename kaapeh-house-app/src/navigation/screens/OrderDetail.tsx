@@ -17,8 +17,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCart, CartItem } from '../../context/CartContext';
 import BottomNavigationBar from '../../components/BottomNavigationBar';
+import PickupTimeModal from '../../components/PickupTimeModal';
 import { createOrder, CreateOrderItem } from '../../services/orderService';
 import { supabase } from '../../../utils/supabase';
+import { formatTime } from '../../utils/pickupTimeUtils';
 
 // Define the route params interface (optional, for backward compatibility)
 type RootStackParamList = {
@@ -81,7 +83,7 @@ const getImageSource = (item: CartItem) => {
 export default function OrderDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<OrderDetailRouteProp>();
-  const { items: cartItemsFromContext, setQuantity, removeItem, clear } = useCart();
+  const { items: cartItemsFromContext, setQuantity, removeItem, clear, pickupTime: pickupTimeFromContext, setPickupTime } = useCart();
   // Use cart items from context, fallback to route params if provided
   const cartItems = route.params?.cartItems || cartItemsFromContext;
   
@@ -93,6 +95,9 @@ export default function OrderDetailScreen() {
   const [specialInstructions, setSpecialInstructions] = useState<string>('');
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  // Use pickup time from context (persisted) instead of local state
+  const pickupTime = pickupTimeFromContext;
+  const [showPickupTimeModal, setShowPickupTimeModal] = useState(false);
 
   // Sync quantities when cartItems change
   React.useEffect(() => {
@@ -111,8 +116,9 @@ export default function OrderDetailScreen() {
   };
 
   const subtotal = calculateSubtotal();
-  const discountDeliveryFee = 1.0;
-  const total = subtotal + discountDeliveryFee;
+  const salesTaxRate = 0.0825; // 8.25%
+  const salesTax = subtotal * salesTaxRate;
+  const total = subtotal + salesTax;
 
   const updateQuantity = (item: CartItem, change: number) => {
     const itemKey = getItemKey(item);
@@ -148,6 +154,13 @@ export default function OrderDetailScreen() {
     // Check if cart is empty
     if (cartItems.length === 0) {
       Alert.alert('Empty Cart', 'Please add items to your cart before placing an order.');
+      return;
+    }
+
+    // Check if pickup time is selected
+    if (!pickupTime) {
+      Alert.alert('Pickup Time Required', 'Please select a pickup time before placing your order.');
+      setShowPickupTimeModal(true);
       return;
     }
 
@@ -189,6 +202,7 @@ export default function OrderDetailScreen() {
         cart_items: orderItems,
         total_amount: total,
         special_instructions: specialInstructions || undefined,
+        pickup_time: pickupTime.toISOString(),
       });
 
       // Clear the cart
@@ -241,45 +255,21 @@ export default function OrderDetailScreen() {
               </Text>
             </View>
             <TouchableOpacity 
-              style={styles.pickupMethodButton}
-              onPress={() => setShowDeliveryDropdown(!showDeliveryDropdown)}
+              style={[styles.pickupMethodButton, !pickupTime && styles.pickupMethodButtonRequired]}
+              onPress={() => setShowPickupTimeModal(true)}
             >
-              <Text style={styles.pickupMethodText}>
-                {selectedDeliveryTime}
+              <Text style={[styles.pickupMethodText, pickupTime && styles.pickupMethodTextSelected]}>
+                {pickupTime ? formatTime(pickupTime) : 'Select Time'}
               </Text>
               <MaterialCommunityIcons 
-                name={showDeliveryDropdown ? "chevron-up" : "chevron-down"} 
-                size={16} 
-                color="#666666" 
+                name="chevron-right" 
+                size={22} 
+                color={pickupTime ? "#acc18a" : "#666666"} 
               />
             </TouchableOpacity>
           </View>
-
-          {/* Delivery Time Dropdown */}
-          {showDeliveryDropdown && (
-            <View style={styles.dropdownContainer}>
-              {deliveryTimes.map((time, index) => (
-                <TouchableOpacity
-                  key={time}
-                  style={[
-                    styles.dropdownItem,
-                    selectedDeliveryTime === time && styles.selectedDropdownItem,
-                    index === deliveryTimes.length - 1 && styles.lastDropdownItem
-                  ]}
-                  onPress={() => {
-                    setSelectedDeliveryTime(time);
-                    setShowDeliveryDropdown(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.dropdownItemText,
-                    selectedDeliveryTime === time && styles.selectedDropdownItemText
-                  ]}>
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          {!pickupTime && (
+            <Text style={styles.requiredText}>Pickup time is required.</Text>
           )}
 
           <View style={styles.pickupAddressSection}>
@@ -401,8 +391,20 @@ export default function OrderDetailScreen() {
         <View style={styles.paymentSummarySection}>
           <Text style={styles.paymentSummaryTitle}>Payment Summary</Text>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Price</Text>
+            <Text style={styles.paymentLabel}>Subtotal</Text>
             <Text style={styles.paymentValue}>${subtotal.toFixed(2)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentLabel}>Sales Tax (8.25%)</Text>
+            <Text style={styles.paymentValue}>${salesTax.toFixed(2)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentLabel}>Tip</Text>
+            <Text style={styles.paymentLabelTip}>Optional (Added in-store)</Text>
+          </View>
+          <View style={[styles.paymentRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -429,6 +431,17 @@ export default function OrderDetailScreen() {
 
       {/* Bottom Navigation Bar */}
       <BottomNavigationBar currentScreen="Shopping" />
+
+      {/* Pickup Time Modal */}
+      <PickupTimeModal
+        visible={showPickupTimeModal}
+        onClose={() => setShowPickupTimeModal(false)}
+        onSelectTime={(time) => {
+          setPickupTime(time);
+          setShowPickupTimeModal(false);
+        }}
+        initialTime={pickupTime}
+      />
     </SafeAreaView>
   );
 }
@@ -464,11 +477,11 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   pickupSection: {
-    paddingVertical: 20,
+    paddingVertical: 5,
   },
   pickupMethodContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   pickupMethodButton: {
     flex: 1,
@@ -488,6 +501,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#666666',
+  },
+  pickupMethodTextSelected: {
+    color: '#666666',
+    fontWeight: '600',
+  },
+  pickupMethodButtonRequired: {
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+  },
+  requiredText: {
+    fontSize: 13,
+    color: '#FF6B6B',
+    marginTop: 0,
+    marginLeft: 2,
+    marginBottom: 10,
   },
   selectedPickupText: {
     fontSize: 15,
@@ -541,7 +569,7 @@ const styles = StyleSheet.create({
   },
   pickupAddressName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
     color: '#2B2B2B',
     marginBottom: 4,
   },
@@ -553,6 +581,7 @@ const styles = StyleSheet.create({
   addNoteButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
@@ -676,6 +705,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2B2B2B',
   },
+  paymentLabelItalic: {
+    fontStyle: 'italic',
+  },
+  paymentValueItalic: {
+    fontStyle: 'italic',
+    color: '#666666',
+  },
+  tipMessageContainer: {
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  paymentLabelTip: {
+    fontSize: 13,
+    color: '#999999',
+    fontStyle: 'italic',
+  },
+  totalRow: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2B2B2B',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2B2B2B',
+  },
   deliveryFeeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -757,6 +818,7 @@ const styles = StyleSheet.create({
   },
   noteInputContainer: {
     marginTop: 16,
+    marginBottom: 12,
     padding: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
@@ -794,7 +856,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   noteDisplayContainer: {
-    marginTop: 12,
+    marginTop: 8,
+    marginBottom: 10,
     padding: 12,
     backgroundColor: '#F9F9F9',
     borderRadius: 8,

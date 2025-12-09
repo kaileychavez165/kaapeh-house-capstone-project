@@ -14,8 +14,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
-import { cancelOrder, updateCustomerStatus, Order, OrderItem } from "../../services/orderService";
+import PickupTimeModal from "../../components/PickupTimeModal";
+import { cancelOrder, updateCustomerStatus, updatePickupTime, Order, OrderItem } from "../../services/orderService";
 import { useActiveOrders, usePastOrders, useInvalidateOrders } from "../../hooks/useOrderQueries";
+import { formatTime } from "../../utils/pickupTimeUtils";
 
 interface MyOrderProps {
     session: Session;
@@ -25,6 +27,8 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
     const navigation = useNavigation();
     const [activeTab, setActiveTab] = useState<'active' | 'past'>('active'); 
     const [selectedStatuses, setSelectedStatuses] = useState<Record<string, string>>({});
+    const [showPickupTimeModal, setShowPickupTimeModal] = useState(false);
+    const [selectedOrderForPickupTime, setSelectedOrderForPickupTime] = useState<Order | null>(null);
     
     // React Query hooks for orders
     const { data: activeOrders = [], isLoading: activeLoading, refetch } = useActiveOrders(session?.user?.id);
@@ -95,6 +99,33 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                 Alert.alert("Error updating status", error.message);
                 // Revert on error by refetching
                 refetch();
+            }
+        }
+    };
+
+    const handleEditPickupTime = (order: Order) => {
+        setSelectedOrderForPickupTime(order);
+        setShowPickupTimeModal(true);
+    };
+
+    const handlePickupTimeUpdate = async (newTime: Date) => {
+        if (!selectedOrderForPickupTime) return;
+
+        try {
+            await updatePickupTime(selectedOrderForPickupTime.id, newTime.toISOString());
+            
+            // Invalidate and refetch orders after pickup time update
+            if (session?.user?.id) {
+                invalidateActive(session.user.id);
+                invalidatePast(session.user.id);
+            }
+            
+            Alert.alert("Success", "Pickup time updated successfully.");
+            setShowPickupTimeModal(false);
+            setSelectedOrderForPickupTime(null);
+        } catch (error) {
+            if (error instanceof Error) {
+                Alert.alert("Error updating pickup time", error.message);
             }
         }
     };
@@ -344,14 +375,19 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                                         <Text style={styles.totalAmount}>${order.total.toFixed(2)}</Text>
                                     </View>
 
-                                    {/* Estimated Time and Location */}
+                                    {/* Pickup Time and Location */}
                                     <View style={styles.infoRow}>
-                                        {/* <View style={styles.infoItem}>
-                                            <MaterialCommunityIcons name="clock-outline" size={16} color="#2B2B2B" />
-                                            <Text style={styles.infoText}>
-                                                Estimated: {order.estimated_time || "15-20 min"}
-                                            </Text>
-                                        </View> */}
+                                        {order.pickup_time && (
+                                            <View style={styles.infoItem}>
+                                                <MaterialCommunityIcons name="clock-outline" size={16} color="#666666" />
+                                                <View style={styles.pickupTimeContainer}>
+                                                    <Text style={styles.pickupTimeLabel}>Pickup Time:</Text>
+                                                    <Text style={styles.pickupTimeValue}>
+                                                        {formatTime(new Date(order.pickup_time))}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        )}
                                         <View style={styles.infoItem}>
                                             <MaterialCommunityIcons name="map-marker-outline" size={16} color="#666666" />
                                             <View>
@@ -359,6 +395,19 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
                                             </View>
                                         </View>
                                     </View>
+
+                                    {/* Edit Pickup Time Button - Only show for active orders */}
+                                    {activeTab === 'active' && order.pickup_time && order.status !== 'completed' && order.status !== 'cancelled' && (
+                                        <View style={styles.editPickupTimeContainer}>
+                                            <TouchableOpacity
+                                                style={styles.editPickupTimeButton}
+                                                onPress={() => handleEditPickupTime(order)}
+                                            >
+                                                <MaterialCommunityIcons name="clock-edit-outline" size={18} color="#acc18a" />
+                                                <Text style={styles.editPickupTimeText}>Edit Pickup Time</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
 
                                     {/* Status Selection - Only show for active orders */}
                                     {activeTab === 'active' && (
@@ -452,6 +501,20 @@ export default function MyOrderScreen({ session }: MyOrderProps) {
 
             {/* Bottom Navigation Bar */}
             <BottomNavigationBar currentScreen="MyOrder" />
+
+            {/* Pickup Time Modal */}
+            {selectedOrderForPickupTime && (
+                <PickupTimeModal
+                    visible={showPickupTimeModal}
+                    onClose={() => {
+                        setShowPickupTimeModal(false);
+                        setSelectedOrderForPickupTime(null);
+                    }}
+                    onSelectTime={handlePickupTimeUpdate}
+                    initialTime={selectedOrderForPickupTime.pickup_time ? new Date(selectedOrderForPickupTime.pickup_time) : undefined}
+                    minTime={selectedOrderForPickupTime.pickup_time ? new Date(selectedOrderForPickupTime.pickup_time) : undefined}
+                />
+            )}
         </SafeAreaView>
     );
 }
@@ -757,6 +820,42 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         flex: 1,
         lineHeight: 18,
+    },
+    pickupTimeContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginLeft: 8,
+    },
+    pickupTimeLabel: {
+        fontSize: 14,
+        color: "#666666",
+        marginRight: 8,
+    },
+    pickupTimeValue: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#2B2B2B",
+    },
+    editPickupTimeContainer: {
+        marginTop: 0,
+        marginBottom: 25,
+    },
+    editPickupTimeButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1,
+        borderColor: "#acc18a",
+    },
+    editPickupTimeText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#acc18a",
+        marginLeft: 8,
     },
 });
 
