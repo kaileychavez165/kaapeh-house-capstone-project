@@ -116,8 +116,6 @@ export default function OrderDetailScreen() {
   };
 
   const subtotal = calculateSubtotal();
-  const discountDeliveryFee = 1.0;
-  const total = subtotal + discountDeliveryFee;
 
   const updateQuantity = (item: CartItem, change: number) => {
     const itemKey = getItemKey(item);
@@ -199,7 +197,7 @@ export default function OrderDetailScreen() {
       const order = await createOrder({
         customer_id: session.user.id,
         cart_items: orderItems,
-        total_amount: total,
+        total_amount: subtotal,
         special_instructions: specialInstructions || undefined,
         pickup_time: pickupTime.toISOString(),
       });
