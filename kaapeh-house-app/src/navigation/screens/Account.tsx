@@ -11,12 +11,16 @@ import {
     Alert,
     ScrollView,
     BackHandler,
+    Image,
+    ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../../../utils/supabase";
 import { Session } from "@supabase/supabase-js";
 import BottomNavigationBar from "../../components/BottomNavigationBar";
+import { uploadAvatarToStorage } from "../../services/userService";
 
 interface AccountProps {
     session: Session;
@@ -27,7 +31,8 @@ export default function AccountScreen({ session }: AccountProps) {
     const [loading, setLoading] = useState(true);
     const [fullName, setFullName] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
-    const [role, setRole] = useState("");
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         if (session) getProfile();
@@ -54,7 +59,7 @@ export default function AccountScreen({ session }: AccountProps) {
         
         const { data, error, status } = await supabase
         .from("profiles")
-        .select(`full_name, avatar_url, role`)
+        .select(`full_name, avatar_url`)
         .eq("id", session?.user.id)
         .single();
 
@@ -66,8 +71,6 @@ export default function AccountScreen({ session }: AccountProps) {
             console.log("👤 Profile data loaded:", data);
             setFullName(data.full_name || "");
             setAvatarUrl(data.avatar_url || "");
-            setRole(data.role || "");
-            console.log("🎭 Role set to:", data.role);
         }
     } catch (error) {
         if (error instanceof Error) {
@@ -77,6 +80,26 @@ export default function AccountScreen({ session }: AccountProps) {
         setLoading(false);
     }
     }
+
+    const handlePickImage = async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (permissionResult.granted === false) {
+            Alert.alert("Permission required", "Permission to access camera roll is required!");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setSelectedImageUri(result.assets[0].uri);
+        }
+    };
 
     async function updateProfile({
         full_name,
@@ -89,9 +112,28 @@ export default function AccountScreen({ session }: AccountProps) {
         setLoading(true);
         if (!session?.user) throw new Error("No user on the session!");
 
+        let finalAvatarUrl = avatar_url;
+
+        // Upload avatar image if a new one was selected
+        if (selectedImageUri) {
+            setIsUploading(true);
+            try {
+                finalAvatarUrl = await uploadAvatarToStorage(selectedImageUri, session.user.id);
+                setAvatarUrl(finalAvatarUrl);
+                setSelectedImageUri(null); // Clear selected image after successful upload
+            } catch (error) {
+                console.error("Error uploading avatar:", error);
+                Alert.alert("Upload Error", "Failed to upload avatar image. Please try again.");
+                setIsUploading(false);
+                setLoading(false);
+                return;
+            }
+            setIsUploading(false);
+        }
+
         const updates = {
             full_name,
-            avatar_url,
+            avatar_url: finalAvatarUrl,
             updated_at: new Date().toISOString(),
         };
 
@@ -151,6 +193,47 @@ export default function AccountScreen({ session }: AccountProps) {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
         >
+            {/* Profile Picture Section */}
+            <View style={styles.avatarContainer}>
+                <Text style={styles.label}>Profile Picture</Text>
+                <View style={styles.avatarWrapper}>
+                    {avatarUrl || selectedImageUri ? (
+                        <Image
+                            source={{ uri: selectedImageUri || avatarUrl }}
+                            style={styles.avatarImage}
+                        />
+                    ) : (
+                        <View style={styles.avatarPlaceholder}>
+                            <MaterialCommunityIcons
+                                name="account"
+                                size={60}
+                                color="#BFBFBF"
+                            />
+                        </View>
+                    )}
+                    {isUploading && (
+                        <View style={styles.uploadingOverlay}>
+                            <ActivityIndicator size="large" color="#FFFFFF" />
+                        </View>
+                    )}
+                </View>
+                <TouchableOpacity
+                    style={styles.changeAvatarButton}
+                    onPress={handlePickImage}
+                    disabled={isUploading || loading}
+                >
+                    <MaterialCommunityIcons
+                        name="camera"
+                        size={18}
+                        color="#FFFFFF"
+                        style={styles.buttonIcon}
+                    />
+                    <Text style={styles.changeAvatarButtonText}>
+                        {selectedImageUri ? "Change Picture" : "Upload Picture"}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
             {/* Email Input - Read Only */}
             <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
@@ -176,29 +259,16 @@ export default function AccountScreen({ session }: AccountProps) {
             />
             </View>
 
-
-            {/* Role Input - Read Only */}
-            <View style={styles.inputContainer}>
-            <Text style={styles.label}>Role</Text>
-            <TextInput
-                style={[styles.input, styles.disabledInput]}
-                value={role ? role.charAt(0).toUpperCase() + role.slice(1) : ""}
-                editable={false}
-                placeholder="No role assigned"
-                placeholderTextColor="#BFBFBF"
-            />
-            </View>
-
             {/* Update Button */}
             <TouchableOpacity
-            style={[styles.updateButton, loading && styles.buttonDisabled]}
+            style={[styles.updateButton, (loading || isUploading) && styles.buttonDisabled]}
             onPress={() =>
                 updateProfile({
                 full_name: fullName,
                 avatar_url: avatarUrl,
                 })
             }
-            disabled={loading}
+            disabled={loading || isUploading}
             >
             <MaterialCommunityIcons
                 name="account-edit"
@@ -207,7 +277,7 @@ export default function AccountScreen({ session }: AccountProps) {
                 style={styles.buttonIcon}
             />
             <Text style={styles.updateButtonText}>
-                {loading ? "Updating..." : "Update Profile"}
+                {isUploading ? "Uploading..." : loading ? "Updating..." : "Update Profile"}
             </Text>
             </TouchableOpacity>
 
@@ -321,6 +391,7 @@ const styles = StyleSheet.create({
         borderColor: "#C9302C",
         flexDirection: "row",
         justifyContent: "center",
+        marginBottom: 32,
     },
     buttonDisabled: {
         backgroundColor: "#A8A8A8",
@@ -341,5 +412,58 @@ const styles = StyleSheet.create({
     },
     bottomSpacing: {
         height: 100,
+    },
+    avatarContainer: {
+        alignItems: "center",
+        marginBottom: 32,
+    },
+    avatarWrapper: {
+        position: "relative",
+        marginBottom: 16,
+    },
+    avatarImage: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 3,
+        borderColor: "#acc18a",
+    },
+    avatarPlaceholder: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: "#E5E5E5",
+        borderWidth: 3,
+        borderColor: "#acc18a",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    uploadingOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 60,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    changeAvatarButton: {
+        backgroundColor: "#acc18a",
+        borderColor: "#6B8A68",
+        borderWidth: 1.5,
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        marginBottom: 5,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    changeAvatarButtonText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "600",
     },
 });
