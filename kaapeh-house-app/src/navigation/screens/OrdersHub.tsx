@@ -428,19 +428,28 @@ const OrdersHubScreen = () => {
                 const customerEmail = order.customer?.email || '';
                 const avatarInitials = getAvatarInitials(customerName);
                 const statusBadge = getStatusBadgeStyle(order.status);
+                const avatarUrl = order.customer?.avatar_url;
+                const hasAvatar = !!(avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('https')));
 
                 return (
                   <View key={order.id} style={styles.orderCard}>
                     <View style={styles.customerRow}>
                       <View style={styles.customerInfo}>
-                        <View
-                          style={[
-                            styles.avatar,
-                            { backgroundColor: getAvatarColor(customerName) },
-                          ]}
-                        >
-                          <Text style={styles.avatarText}>{avatarInitials}</Text>
-                        </View>
+                        {hasAvatar ? (
+                          <Image
+                            source={{ uri: avatarUrl! }}
+                            style={styles.avatar}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.avatar,
+                              { backgroundColor: getAvatarColor(customerName) },
+                            ]}
+                          >
+                            <Text style={styles.avatarText}>{avatarInitials}</Text>
+                          </View>
+                        )}
                         <View>
                           <Text style={styles.customerName}>{customerName}</Text>
                           <Text style={styles.customerEmail}>{customerEmail}</Text>
