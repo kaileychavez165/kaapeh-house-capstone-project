@@ -116,6 +116,9 @@ export default function OrderDetailScreen() {
   };
 
   const subtotal = calculateSubtotal();
+  const salesTaxRate = 0.0825; // 8.25%
+  const salesTax = subtotal * salesTaxRate;
+  const total = subtotal + salesTax;
 
   const updateQuantity = (item: CartItem, change: number) => {
     const itemKey = getItemKey(item);
@@ -197,7 +200,7 @@ export default function OrderDetailScreen() {
       const order = await createOrder({
         customer_id: session.user.id,
         cart_items: orderItems,
-        total_amount: subtotal,
+        total_amount: total,
         special_instructions: specialInstructions || undefined,
         pickup_time: pickupTime.toISOString(),
       });
@@ -388,8 +391,20 @@ export default function OrderDetailScreen() {
         <View style={styles.paymentSummarySection}>
           <Text style={styles.paymentSummaryTitle}>Payment Summary</Text>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Price</Text>
+            <Text style={styles.paymentLabel}>Subtotal</Text>
             <Text style={styles.paymentValue}>${subtotal.toFixed(2)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentLabel}>Sales Tax (8.25%)</Text>
+            <Text style={styles.paymentValue}>${salesTax.toFixed(2)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentLabel}>Tip</Text>
+            <Text style={styles.paymentLabelTip}>Optional (Added in-store)</Text>
+          </View>
+          <View style={[styles.paymentRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -688,6 +703,38 @@ const styles = StyleSheet.create({
   paymentValue: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#2B2B2B',
+  },
+  paymentLabelItalic: {
+    fontStyle: 'italic',
+  },
+  paymentValueItalic: {
+    fontStyle: 'italic',
+    color: '#666666',
+  },
+  tipMessageContainer: {
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  paymentLabelTip: {
+    fontSize: 13,
+    color: '#999999',
+    fontStyle: 'italic',
+  },
+  totalRow: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2B2B2B',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#2B2B2B',
   },
   deliveryFeeContainer: {
