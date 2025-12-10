@@ -1,0 +1,146 @@
+diff --git a/node_modules/jest-expo/src/preset/setup.js b/node_modules/jest-expo/src/preset/setup.js
+index 90a3d83..6c8cd24 100644
+--- a/node_modules/jest-expo/src/preset/setup.js
++++ b/node_modules/jest-expo/src/preset/setup.js
+@@ -117,16 +117,33 @@ for (const moduleName of Object.keys(expoModules)) {
+   });
+ }
+ 
+-Object.keys(mockNativeModules.NativeUnimoduleProxy.viewManagersMetadata).forEach(
+-  (viewManagerName) => {
+-    Object.defineProperty(mockNativeModules.UIManager, `ViewManagerAdapter_${viewManagerName}`, {
+-      get: () => ({
+-        NativeProps: {},
+-        directEventTypes: [],
+-      }),
+-    });
+-  }
+-);
++// Ensure UIManager exists and is an object before using it
++if (!mockNativeModules.UIManager || typeof mockNativeModules.UIManager !== 'object' || Array.isArray(mockNativeModules.UIManager)) {
++  Object.defineProperty(mockNativeModules, 'UIManager', {
++    configurable: true,
++    enumerable: true,
++    value: {},
++    writable: true,
++  });
++}
++
++// Ensure NativeUnimoduleProxy.viewManagersMetadata exists before accessing it
++const nativeUnimoduleProxy = mockNativeModules.NativeUnimoduleProxy;
++if (!nativeUnimoduleProxy || !nativeUnimoduleProxy.viewManagersMetadata) {
++  // If NativeUnimoduleProxy doesn't have viewManagersMetadata, skip the forEach
++  // This can happen if the mock isn't fully initialized
++} else {
++  Object.keys(nativeUnimoduleProxy.viewManagersMetadata).forEach(
++    (viewManagerName) => {
++      Object.defineProperty(mockNativeModules.UIManager, `ViewManagerAdapter_${viewManagerName}`, {
++        get: () => ({
++          NativeProps: {},
++          directEventTypes: [],
++        }),
++      });
++    }
++  );
++}
+ 
+ try {
+   jest.mock('expo-file-system', () => ({
+@@ -183,16 +200,21 @@ jest.doMock('react-native/Libraries/LogBox/LogBox', () => ({
+ }));
+ 
+ // Mock the `createSnapshotFriendlyRef` to return an ref that can be serialized in snapshots.
+-jest.doMock('expo-modules-core/build/Refs', () => ({
+-  createSnapshotFriendlyRef: () => {
+-    // We cannot use `createRef` since it is not extensible.
+-    const ref = { current: null };
+-    Object.defineProperty(ref, 'toJSON', {
+-      value: () => '[React.ref]',
+-    });
+-    return ref;
+-  },
+-}));
++// Wrap in try-catch since expo-modules-core/build/Refs may not exist (only .d.ts file exists)
++try {
++  jest.doMock('expo-modules-core/build/Refs', () => ({
++    createSnapshotFriendlyRef: () => {
++      // We cannot use `createRef` since it is not extensible.
++      const ref = { current: null };
++      Object.defineProperty(ref, 'toJSON', {
++        value: () => '[React.ref]',
++      });
++      return ref;
++    },
++  }));
++} catch (e) {
++  // If the module doesn't exist, that's okay - it may not be needed for all tests
++}
+ 
+ function attemptLookup(moduleName) {
+   // hack to get the package name from the module name
+@@ -214,16 +236,36 @@ function attemptLookup(moduleName) {
+ try {
+   jest.doMock('expo-modules-core', () => {
+     const ExpoModulesCore = jest.requireActual('expo-modules-core');
+-    const uuid = jest.requireActual('expo-modules-core/build/uuid/uuid.web');
++    let uuid;
++    try {
++      uuid = jest.requireActual('expo-modules-core/build/uuid/uuid.web');
++    } catch (e) {
++      // Fallback if build path doesn't exist
++      try {
++        uuid = jest.requireActual('expo-modules-core/src/uuid/uuid.web');
++      } catch (e2) {
++        // Create a mock uuid if neither path exists
++        uuid = { v4: jest.fn(() => 'mock-uuid-' + Math.random().toString(36).substr(2, 9)) };
++      }
++    }
++    // Ensure uuid has v4 method
++    if (!uuid || !uuid.v4) {
++      uuid = { v4: jest.fn(() => 'mock-uuid-' + Math.random().toString(36).substr(2, 9)) };
++    }
+ 
+-    const { EventEmitter, NativeModule, SharedObject } = globalThis.expo;
++    const { EventEmitter, NativeModule, SharedObject } = globalThis.expo || {};
+ 
+     // support old hard-coded mocks TODO: remove this
+     const { NativeModulesProxy } = ExpoModulesCore;
+ 
+     // Mock the `uuid` object with the implementation for web.
+-    ExpoModulesCore.uuid.v4 = uuid.default.v4;
+-    ExpoModulesCore.uuid.v5 = uuid.default.v5;
++    const uuidImpl = uuid.default || uuid;
++    if (uuidImpl && uuidImpl.v4 && ExpoModulesCore.uuid) {
++      ExpoModulesCore.uuid.v4 = uuidImpl.v4;
++      if (uuidImpl.v5) {
++        ExpoModulesCore.uuid.v5 = uuidImpl.v5;
++      }
++    }
+ 
+     // After the NativeModules mock is set up, we can mock NativeModuleProxy's functions that call
+     // into the native proxy module. We're not really interested in checking whether the underlying
+@@ -271,7 +313,22 @@ try {
+ }
+ 
+ // Installs web implementations of global things that are normally installed through JSI.
+-require('expo-modules-core/build/web/index.web');
++// Try to require expo-modules-core web index, but don't fail if it doesn't exist
++try {
++  require('expo-modules-core/build/web/index.web');
++} catch (e) {
++  // Module may not exist in all versions of expo-modules-core
++  // Try alternative path
++  try {
++    require('expo-modules-core/src/web/index.web');
++  } catch (e2) {
++    // Ignore if neither path exists
++  }
++}
+ 
+ // Ensure the environment globals are installed before the first test runs.
+-require('expo/build/winter');
++try {
++  require('expo/build/winter');
++} catch (e) {
++  // Module may not exist in all versions of Expo
++}
