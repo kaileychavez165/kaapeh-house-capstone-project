@@ -12,6 +12,7 @@ import {
   ScrollView,
   AppState,
   Image,
+  KeyboardAvoidingView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -221,8 +222,11 @@ export default function AuthScreen() {
       </View>
 
       {/* Main Content */}
-      <View style={styles.content}>
-
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         {/* Tabs */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -259,6 +263,7 @@ export default function AuthScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* Signup-specific fields */}
           {activeTab === "signup" && (
@@ -449,7 +454,7 @@ export default function AuthScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -522,7 +527,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
+    flexGrow: 1,
   },
   inputContainer: {
     marginBottom: 20,
