@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -11,19 +11,21 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
-  fetchAdminPendingOrders,
-  fetchAdminPastOrders,
   acceptAdminOrder,
   declineAdminOrder,
   updateAdminOrderStatus,
   AdminOrder,
-  OrderItem,
 } from '../../services/orderService';
 import { formatTime } from '../../utils/pickupTimeUtils';
+import { 
+  useAdminPendingOrders, 
+  useAdminPastOrders, 
+  useInvalidateOrders 
+} from '../../hooks/useOrderQueries';
 
 const ChartIcon = ({ active = false }: { active?: boolean }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -96,15 +98,19 @@ const TruckIcon = ({ active = false }: { active?: boolean }) => (
 const OrdersHubScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<'new' | 'past'>('new');
-  const [newOrders, setNewOrders] = useState<AdminOrder[]>([]);
-  const [pastOrders, setPastOrders] = useState<AdminOrder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempSelectedDate, setTempSelectedDate] = useState<Date>(new Date());
+
+  // React Query hooks for caching
+  const { data: newOrders = [], isLoading: newOrdersLoading } = useAdminPendingOrders();
+  const { data: pastOrders = [], isLoading: pastOrdersLoading } = useAdminPastOrders();
+
+  // Invalidate cache hook
+  const { invalidateAdminPending, invalidateAdminPast } = useInvalidateOrders();
 
   // Filter orders by selected date
   const filteredPastOrders = useMemo(() => {
@@ -128,29 +134,7 @@ const OrdersHubScreen = () => {
     [activeTab, newOrders, filteredPastOrders],
   );
 
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      if (activeTab === 'new') {
-        const pending = await fetchAdminPendingOrders();
-        setNewOrders(pending);
-      } else {
-        const past = await fetchAdminPastOrders();
-        setPastOrders(past);
-      }
-    } catch (error: any) {
-      console.error('Error loading orders:', error);
-      Alert.alert('Error', 'Failed to load orders. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      loadOrders();
-    }, [activeTab]),
-  );
+  const loading = activeTab === 'new' ? newOrdersLoading : pastOrdersLoading;
 
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
@@ -211,8 +195,9 @@ const OrdersHubScreen = () => {
   const handleAcceptOrder = async (orderId: string) => {
     try {
       await acceptAdminOrder(orderId);
+      // Invalidate cache to refetch latest data
+      invalidateAdminPending();
       Alert.alert('Success', 'Order accepted successfully.');
-      await loadOrders();
     } catch (error: any) {
       console.error('Error accepting order:', error);
       Alert.alert('Error', 'Failed to accept order. Please try again.');
@@ -231,8 +216,9 @@ const OrdersHubScreen = () => {
           onPress: async () => {
             try {
               await declineAdminOrder(orderId);
+              // Invalidate cache to refetch latest data
+              invalidateAdminPending();
               Alert.alert('Order Declined', 'The order has been removed from the queue.');
-              await loadOrders();
             } catch (error: any) {
               console.error('Error declining order:', error);
               Alert.alert('Error', 'Failed to decline order. Please try again.');
@@ -248,8 +234,10 @@ const OrdersHubScreen = () => {
       setUpdatingStatus(true);
       await updateAdminOrderStatus(orderId, newStatus);
       setShowStatusModal(false);
+      // Invalidate both pending and past orders cache since status change might move order between tabs
+      invalidateAdminPending();
+      invalidateAdminPast();
       Alert.alert('Success', `Order status updated to ${newStatus}.`);
-      await loadOrders();
     } catch (error: any) {
       console.error('Error updating order status:', error);
       Alert.alert('Error', 'Failed to update order status. Please try again.');
