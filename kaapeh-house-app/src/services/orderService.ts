@@ -176,10 +176,48 @@ export interface CreateOrderParams {
   total_amount: number;
   special_instructions?: string;
   pickup_time: string; // timestamp
+  skipPickupTimeValidation?: boolean;
 }
 
 export const createOrder = async (params: CreateOrderParams): Promise<Order> => {
   try {
+    // Validate inputs before attempting insert
+    const pickupTimeDate = new Date(params.pickup_time);
+    const now = new Date();
+
+    // Validate total_amount
+    if (!params.total_amount || params.total_amount <= 0) {
+      throw new Error(`Invalid total_amount: ${params.total_amount}. Total must be greater than 0.`);
+    }
+
+    // Validate pickup_time is in the future (unless validation is skipped for testing purposes)
+    if (!params.skipPickupTimeValidation && pickupTimeDate <= now) {
+      throw new Error(`Invalid pickup_time: ${params.pickup_time}. Pickup time must be in the future.`);
+    }
+    
+    if (params.skipPickupTimeValidation) {
+      console.log("⚠️ Skipping pickup time validation (testing purposes)");
+    }
+
+    // Validate cart_items
+    if (!params.cart_items || params.cart_items.length === 0) {
+      throw new Error("Cannot create order with no items.");
+    }
+
+    // Validate each cart item
+    for (let i = 0; i < params.cart_items.length; i++) {
+      const item = params.cart_items[i];
+      if (!item.menu_item_id) {
+        throw new Error(`Cart item at index ${i} is missing menu_item_id.`);
+      }
+      if (!item.quantity || item.quantity <= 0) {
+        throw new Error(`Cart item at index ${i} has invalid quantity: ${item.quantity}. Quantity must be greater than 0.`);
+      }
+      if (!item.price_at_time || item.price_at_time <= 0) {
+        throw new Error(`Cart item at index ${i} has invalid price_at_time: ${item.price_at_time}. Price must be greater than 0.`);
+      }
+    }
+
     // First, create the order
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -196,6 +234,13 @@ export const createOrder = async (params: CreateOrderParams): Promise<Order> => 
 
     if (orderError) {
       console.error("Error creating order:", orderError);
+      console.error("Order data that failed:", {
+        customer_id: params.customer_id,
+        total_amount: params.total_amount,
+        pickup_time: params.pickup_time,
+        status: "pending",
+        customer_status: "not_started",
+      });
       throw orderError;
     }
 
