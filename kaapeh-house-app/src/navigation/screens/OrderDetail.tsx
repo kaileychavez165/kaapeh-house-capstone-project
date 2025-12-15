@@ -203,6 +203,7 @@ export default function OrderDetailScreen() {
         total_amount: total,
         special_instructions: specialInstructions || undefined,
         pickup_time: pickupTime.toISOString(),
+        skipPickupTimeValidation: false, // Change this flag to true if we're testing and trying to add in orders with earlier dates/pickup times
       });
 
       // Clear the cart

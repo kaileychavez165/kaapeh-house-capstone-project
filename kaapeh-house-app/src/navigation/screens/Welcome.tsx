@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Dimensions,
   Image,
@@ -22,8 +21,8 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#5B9BA4" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       {/* Coffee Image Section */}
       <View style={styles.imageSection}>
@@ -60,7 +59,7 @@ export default function WelcomeScreen() {
           <Text style={styles.buttonText}>Get Started</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -70,7 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F1E8",
   },
   imageSection: {
-    flex: 0.7,
+    flex: 0.95,
     position: 'relative',
   },
   coffeeImage: {
@@ -85,11 +84,11 @@ const styles = StyleSheet.create({
     height: '50%',
   },
   contentSection: {
-    flex: 0.25,
+    flex: 0.35,
     backgroundColor: '#F5F1E8',
     paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingTop: 0,
+    paddingBottom: 90,
     justifyContent: 'center',
   },
   title: {
@@ -103,18 +102,19 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 17,
     color: '#666666',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 16,
+    marginBottom: 32,
     lineHeight: 22,
     textAlign: 'center',
   },
   getStartedButton: {
     backgroundColor: "#acc18a",
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 20,
     alignItems: "center",
     borderWidth: 2,
     borderColor: "#6B8A68",
+    marginTop: 10,
   },
   buttonText: {
     fontSize: 18,
