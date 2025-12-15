@@ -7,7 +7,7 @@ export const menuKeys = {
   lists: () => [...menuKeys.all, 'list'] as const,
   list: (filters: { excludeAdminCategories?: boolean; category?: string; searchQuery?: string }) => 
     [...menuKeys.lists(), filters] as const,
-  categories: () => [...menuKeys.all, 'categories'] as const,
+  categories: (forAdmin?: boolean) => [...menuKeys.all, 'categories', { forAdmin }] as const,
 };
 
 // Hook to fetch all menu items
@@ -32,10 +32,10 @@ export function useMenuItemsByCategory(category: string, excludeAdminCategories:
 }
 
 // Hook to fetch menu categories
-export function useMenuCategories() {
+export function useMenuCategories(forAdmin: boolean = false) {
   return useQuery({
-    queryKey: menuKeys.categories(),
-    queryFn: () => fetchMenuCategories(),
+    queryKey: menuKeys.categories(forAdmin),
+    queryFn: () => fetchMenuCategories(forAdmin),
     staleTime: 10 * 60 * 1000, // 10 minutes - categories don't change often
     gcTime: 30 * 60 * 1000,
   });

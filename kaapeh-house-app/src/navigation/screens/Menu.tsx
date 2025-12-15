@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,17 @@ import { Svg, Circle, Path, G } from 'react-native-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EditMode, DeleteConfirmationModal, MenuItem, AddItemMode } from './MenuFeature';
 import { 
-  fetchMenuItems, 
-  fetchMenuItemsByCategory, 
-  fetchMenuCategories,
   updateMenuItem,
   deleteMenuItem,
   addMenuItem,
   MenuItem as DbMenuItem 
 } from '../../services/menuService';
+import { 
+  useMenuCategories, 
+  useMenuItems, 
+  useMenuItemsByCategory,
+  useInvalidateMenu 
+} from '../../hooks/useMenuQueries';
 
 // Navigation Icons
 const ChartIcon = ({ active = false }) => (
@@ -68,9 +71,6 @@ const Menu = () => {
   const [addingItem, setAddingItem] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All Subcategories');
   const [showSubCategoryDropdown, setShowSubCategoryDropdown] = useState(false);
 
@@ -79,6 +79,24 @@ const Menu = () => {
   const dropdownScale = useState(new Animated.Value(0.8))[0];
 
   const subCategoryOptions = ['All Subcategories', 'Milk', 'Syrup', 'Flavor', 'Extras'];
+
+  // React Query hooks for caching
+  const { data: categories = [], isLoading: categoriesLoading } = useMenuCategories(true); // Include admin categories
+  const { data: allMenuItems = [], isLoading: allItemsLoading } = useMenuItems(false); // Don't exclude admin categories for admin view
+  const { data: categoryMenuItems = [], isLoading: categoryLoading } = useMenuItemsByCategory(
+    selectedCategory,
+    false // Don't exclude admin categories for admin view
+  );
+
+  // Invalidate cache hook
+  const { invalidateLists } = useInvalidateMenu();
+
+  // Reset subcategory when category changes
+  useEffect(() => {
+    if (selectedCategory !== 'Customizations') {
+      setSelectedSubCategory('All Subcategories');
+    }
+  }, [selectedCategory]);
 
   // Convert database MenuItem to display MenuItem
   const convertDbToDisplay = (dbItem: DbMenuItem): MenuItem => {
@@ -95,49 +113,15 @@ const Menu = () => {
     };
   };
 
-  // Load menu items on mount and when category changes
-  useEffect(() => {
-    loadMenuItems();
-    if (selectedCategory !== 'Customizations') {
-      setSelectedSubCategory('All Subcategories');
+  // Determine which data to use and loading state
+  const menuItemsData = useMemo(() => {
+    if (selectedCategory === 'All Items') {
+      return allMenuItems || [];
     }
-  }, [selectedCategory]);
+    return categoryMenuItems || [];
+  }, [selectedCategory, allMenuItems, categoryMenuItems]);
 
-  // Load categories on mount
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
-    try {
-      // Fetch categories with admin-only categories included
-      const cats = await fetchMenuCategories(true);
-      setCategories(cats);
-    } catch (error) {
-      console.error('Error loading categories:', error);
-      Alert.alert('Error', 'Failed to load categories');
-    }
-  };
-
-  const loadMenuItems = async () => {
-    try {
-      setLoading(true);
-      let data: DbMenuItem[];
-      
-      if (selectedCategory === 'All Items') {
-        data = await fetchMenuItems();
-      } else {
-        data = await fetchMenuItemsByCategory(selectedCategory);
-      }
-      
-      setMenuItems(data.map(convertDbToDisplay));
-    } catch (error) {
-      console.error('Error loading menu items:', error);
-      Alert.alert('Error', 'Failed to load menu items');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = categoriesLoading || (selectedCategory === 'All Items' ? allItemsLoading : categoryLoading);
 
   const handleEdit = async (updatedItem: MenuItem) => {
     try {
@@ -151,8 +135,8 @@ const Menu = () => {
         sizes: updatedItem.sizes,
       });
 
-      // Reload menu items to get the latest from database
-      await loadMenuItems();
+      // Invalidate cache to refetch latest data
+      invalidateLists();
       setEditingId(null);
       Alert.alert('Success', 'Menu item updated successfully');
     } catch (error) {
@@ -178,8 +162,8 @@ const Menu = () => {
         sub_category: newItem.sub_category,
       });
 
-      // Reload menu items to get the latest from database
-      await loadMenuItems();
+      // Invalidate cache to refetch latest data
+      invalidateLists();
       setAddingItem(false);
       Alert.alert('Success', 'Menu item added successfully');
     } catch (error) {
@@ -197,7 +181,8 @@ const Menu = () => {
     if (itemToDelete !== null) {
       try {
         await deleteMenuItem(itemToDelete);
-        setMenuItems(items => items.filter(item => item.id !== itemToDelete));
+        // Invalidate cache to refetch latest data
+        invalidateLists();
         setDeleteModalVisible(false);
         setItemToDelete(null);
         Alert.alert('Success', 'Menu item deleted successfully');
@@ -269,10 +254,10 @@ const Menu = () => {
   };
 
   // Filter menu items by category and subcategory
-  const filteredMenuItems = (() => {
-    let filtered = selectedCategory === 'All Items'
-      ? menuItems
-      : menuItems.filter(item => item.category === selectedCategory);
+  const filteredMenuItems = useMemo(() => {
+    const convertedItems = menuItemsData.map(convertDbToDisplay);
+    // menuItemsData is already filtered by category from the query, so we don't need to filter again
+    let filtered = convertedItems;
     
     // Apply subcategory filter if Customizations category is selected
     if (selectedCategory === 'Customizations' && selectedSubCategory !== 'All Subcategories') {
@@ -280,7 +265,7 @@ const Menu = () => {
     }
     
     return filtered;
-  })();
+  }, [menuItemsData, selectedCategory, selectedSubCategory]);
 
   return (
     <View style={styles.container}>
